@@ -69,6 +69,11 @@ router.get('/:slug', async (req, res) => {
     const donations = await firebase.getDonations(campaign.id);
     const bankDetails = await firebase.getBankDetails(campaign.id);
 
+    // Newest first; donationsLimit caps the page size (omit to get all)
+    const sortedDonations = donations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const donationsLimit = parseInt(req.query.donationsLimit, 10);
+    const pagedDonations = donationsLimit > 0 ? sortedDonations.slice(0, donationsLimit) : sortedDonations;
+
     const progressPercentage = (campaign.accumulated_amount / campaign.target_amount) * 100;
 
     // Return campaign data without sensitive information (password_hash, email)
@@ -80,7 +85,8 @@ router.get('/:slug', async (req, res) => {
       currency: campaign.currency || 'USD',
       accumulated_amount: campaign.accumulated_amount,
       created_at: campaign.created_at,
-      donations: donations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
+      donations: pagedDonations,
+      donations_count: sortedDonations.length,
       bank_details: bankDetails.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
       progressPercentage: Math.min(progressPercentage, 100)
     });

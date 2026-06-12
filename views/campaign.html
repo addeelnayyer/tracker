@@ -51,6 +51,10 @@
       <div id="donationsList">
         <p class="empty-note">Loading donations…</p>
       </div>
+      <div class="donations-pagination" id="donationsPagination" style="display: none;">
+        <button class="secondary-btn" id="loadMoreDonations" type="button">Show more</button>
+        <p class="pagination-meta" id="donationsMeta"></p>
+      </div>
     </div>
 
     <!-- Documents Gallery -->
@@ -178,9 +182,12 @@
     document.getElementById('donationTimestamp').value = `${year}-${month}-${day}T${hours}:${minutes}`;
 
     // Load campaign data
+    const DONATIONS_PAGE_SIZE = 20;
+    let donationsLimit = DONATIONS_PAGE_SIZE;
+
     async function loadCampaign() {
       try {
-        const response = await apiCall(`/api/campaigns/${slug}`);
+        const response = await apiCall(`/api/campaigns/${slug}?donationsLimit=${donationsLimit}`);
 
         campaignCurrency = response.currency || 'USD';
         document.getElementById('donationCurrencyLabel').textContent = campaignCurrency;
@@ -211,12 +218,38 @@
           donationsList.innerHTML = '<p class="empty-note">No donations yet. Be the first to donate!</p>';
         }
 
+        renderDonationsPagination(response);
         renderBankDetails(response.bank_details || []);
       } catch (error) {
         showMessage('message', 'Failed to load campaign', 'error');
         console.error(error);
       }
     }
+
+    function renderDonationsPagination(response) {
+      const pagination = document.getElementById('donationsPagination');
+      const shown = response.donations ? response.donations.length : 0;
+      const total = response.donations_count || shown;
+
+      if (total > shown) {
+        const nextBatch = Math.min(DONATIONS_PAGE_SIZE, total - shown);
+        document.getElementById('loadMoreDonations').textContent = `Show ${nextBatch} more`;
+        document.getElementById('donationsMeta').textContent = `Showing ${shown} of ${total} donations`;
+        pagination.style.display = 'block';
+      } else {
+        pagination.style.display = 'none';
+      }
+    }
+
+    document.getElementById('loadMoreDonations').addEventListener('click', async (e) => {
+      donationsLimit += DONATIONS_PAGE_SIZE;
+      e.target.disabled = true;
+      try {
+        await loadCampaign();
+      } finally {
+        e.target.disabled = false;
+      }
+    });
 
     // Login handler
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
