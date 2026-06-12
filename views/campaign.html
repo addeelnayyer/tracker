@@ -135,7 +135,24 @@
              accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf">
       <div class="upload-queue" id="uploadQueue"></div>
 
-      <button class="secondary-btn" onclick="logoutAdmin()">Log Out</button>
+      <div class="section-label" style="margin-top: 28px;">Change Password</div>
+      <form id="changePasswordForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="newPassword">New Password</label>
+            <input type="password" id="newPassword" placeholder="At least 8 characters" minlength="8" required>
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">Confirm Password</label>
+            <input type="password" id="confirmPassword" placeholder="Re-enter new password" minlength="8" required>
+          </div>
+        </div>
+
+        <button type="submit" class="block-btn">Update Password</button>
+      </form>
+
+      <button class="secondary-btn" onclick="logoutAdmin()" style="margin-top: 28px;">Log Out</button>
     </div>
 
     <!-- Non-Admin Login Section -->
@@ -157,6 +174,29 @@
         </div>
 
         <button type="submit" class="block-btn">Sign In</button>
+      </form>
+
+      <p style="margin-top: 14px; font-size: 14px;">
+        <a href="#" id="forgotPasswordLink">Forgot password?</a>
+      </p>
+
+      <form id="resetPasswordForm" style="display: none; margin-top: 18px;">
+        <p class="lede" style="font-size: 14px;">Enter the email this campaign was created with to set a new password.</p>
+        <div class="form-group">
+          <label for="resetEmail">Email</label>
+          <input type="email" id="resetEmail" placeholder="organizer@example.com" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="resetNewPassword">New Password</label>
+            <input type="password" id="resetNewPassword" placeholder="At least 8 characters" minlength="8" required>
+          </div>
+          <div class="form-group">
+            <label for="resetConfirmPassword">Confirm Password</label>
+            <input type="password" id="resetConfirmPassword" placeholder="Re-enter new password" minlength="8" required>
+          </div>
+        </div>
+        <button type="submit" class="block-btn">Reset Password</button>
       </form>
     </div>
 
@@ -569,6 +609,86 @@
         loadDocuments();
       } catch (error) {
         showMessage('message', 'Invalid credentials', 'error');
+      }
+    });
+
+    // ==================== Change password (logged in) ====================
+
+    document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      if (newPassword !== confirmPassword) {
+        showMessage('message', 'Passwords do not match', 'error');
+        return;
+      }
+
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      try {
+        await apiCall('/api/auth/change-password', 'POST', {
+          campaignSlug: slug,
+          email,
+          password,
+          newPassword
+        });
+
+        // Keep the stored credential in sync so subsequent actions still authenticate.
+        localStorage.setItem(`admin_password_${slug}`, newPassword);
+        document.getElementById('changePasswordForm').reset();
+        showMessage('message', 'Password updated successfully', 'success');
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to update password', 'error');
+      }
+    });
+
+    // ==================== Reset password (locked out) ====================
+
+    document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      const form = document.getElementById('resetPasswordForm');
+      const showing = form.style.display !== 'none';
+      form.style.display = showing ? 'none' : 'block';
+      if (!showing) document.getElementById('resetEmail').focus();
+    });
+
+    document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('resetEmail').value.trim();
+      const newPassword = document.getElementById('resetNewPassword').value;
+      const confirmPassword = document.getElementById('resetConfirmPassword').value;
+
+      if (newPassword !== confirmPassword) {
+        showMessage('message', 'Passwords do not match', 'error');
+        return;
+      }
+
+      try {
+        await apiCall('/api/auth/reset-password', 'POST', {
+          campaignSlug: slug,
+          email,
+          newPassword
+        });
+
+        // Log in straight away with the new credential.
+        isAdmin = true;
+        localStorage.setItem(`admin_${slug}`, 'true');
+        localStorage.setItem(`admin_email_${slug}`, email);
+        localStorage.setItem(`admin_password_${slug}`, newPassword);
+
+        document.getElementById('resetPasswordForm').reset();
+        document.getElementById('resetPasswordForm').style.display = 'none';
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('adminSection').style.display = 'block';
+        showMessage('message', 'Password reset — you are now signed in', 'success');
+        loadCampaign();
+        loadDocuments();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to reset password', 'error');
       }
     });
 

@@ -18,9 +18,13 @@ const PORT = process.env.DEV_PORT || 3000;
 app.set('trust proxy', true);
 
 // Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+// On Cloud Functions (K_SERVICE set) firebase-functions has already parsed the
+// body, consuming the stream; re-parsing here throws "stream is not readable".
+// Only parse when running standalone (local `node`), where the stream is fresh.
+if (!process.env.K_SERVICE) {
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+}
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Session configuration
