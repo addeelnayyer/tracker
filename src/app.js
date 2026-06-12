@@ -9,6 +9,7 @@ const donationRoutes = require('./routes/donations');
 const authRoutes = require('./routes/auth');
 const documentRoutes = require('./routes/documents');
 const bankDetailRoutes = require('./routes/bankDetails');
+const paymentRoutes = require('./routes/payments');
 
 const app = express();
 const PORT = process.env.DEV_PORT || 3000;
@@ -46,6 +47,7 @@ app.use('/api/donations', donationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/bank-details', bankDetailRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Home page
 app.get('/', (req, res) => {

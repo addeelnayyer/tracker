@@ -395,6 +395,15 @@ button:active {
   color: var(--pine);
 }
 
+/* ---------- Donate by card ---------- */
+
+.card-donate-section { margin-top: 38px; }
+
+.card-donate-section .optional-hint {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
 /* ---------- Bank transfer details ---------- */
 
 .bank-section { margin-top: 38px; }
