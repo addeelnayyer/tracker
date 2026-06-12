@@ -254,6 +254,7 @@ module.exports = {
   getDonations,
   addDonation,
   updateCampaignAmount,
+  incrementCampaignAmount,
   deleteDonation,
   updateDonation,
   getDocuments,
