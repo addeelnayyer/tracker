@@ -11,4 +11,4 @@ const SECRETS = [
   'SESSION_SECRET',
 ];
 
-exports.api = onRequest({ region: 'us-central1', secrets: SECRETS }, app);
+exports.api = onRequest({ region: 'us-central1', secrets: SECRETS, invoker: 'public' }, app);
