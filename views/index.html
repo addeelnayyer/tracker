@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campaign Tracker - Create New Campaign</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="campaign-header">
+      <h1>🎯 Campaign Tracker</h1>
+      <p>Create a new fundraising campaign to start tracking donations</p>
+    </div>
+
+    <div id="message"></div>
+
+    <form id="campaignForm">
+      <div class="form-group">
+        <label for="campaignName">Campaign Name</label>
+        <input type="text" id="campaignName" name="campaignName" placeholder="e.g., School Library Fund" required>
+      </div>
+
+      <div class="form-group">
+        <label for="campaignSlug">Campaign Slug (URL-friendly)</label>
+        <input type="text" id="campaignSlug" name="campaignSlug" placeholder="e.g., school-library" required>
+        <small style="color: #888;">Your campaign will be accessible at: campaign-slug</small>
+      </div>
+
+      <div class="form-group">
+        <label for="targetAmount">Target Amount ($)</label>
+        <input type="number" id="targetAmount" name="targetAmount" placeholder="10000" step="0.01" min="0" required>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Organizer Email</label>
+        <input type="email" id="email" name="email" placeholder="organizer@example.com" required>
+        <small style="color: #888;">You'll use this to manage the campaign</small>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" placeholder="Enter a strong password" required>
+        <small style="color: #888;">Must be at least 8 characters with uppercase, lowercase, and numbers</small>
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm your password" required>
+      </div>
+
+      <button type="submit" style="width: 100%; padding: 14px;">Create Campaign</button>
+    </form>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    document.getElementById('campaignForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById('campaignName').value.trim();
+      const slug = document.getElementById('campaignSlug').value.trim().toLowerCase();
+      const targetAmount = parseFloat(document.getElementById('targetAmount').value);
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      // Validation
+      if (!name || !slug || !targetAmount || !email || !password) {
+        showMessage('message', 'All fields are required', 'error');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        showMessage('message', 'Passwords do not match', 'error');
+        return;
+      }
+
+      if (password.length < 8) {
+        showMessage('message', 'Password must be at least 8 characters', 'error');
+        return;
+      }
+
+      if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+        showMessage('message', 'Password must contain uppercase, lowercase, and numbers', 'error');
+        return;
+      }
+
+      if (slug.length < 3) {
+        showMessage('message', 'Campaign slug must be at least 3 characters', 'error');
+        return;
+      }
+
+      if (targetAmount <= 0) {
+        showMessage('message', 'Target amount must be greater than 0', 'error');
+        return;
+      }
+
+      try {
+        const response = await apiCall('/api/campaigns', 'POST', {
+          name,
+          slug,
+          targetAmount,
+          email,
+          password
+        });
+
+        if (response.success) {
+          showMessage('message', `Campaign created! Redirecting to ${slug}...`, 'success');
+          setTimeout(() => {
+            window.location.href = `/campaign/${slug}`;
+          }, 2000);
+        }
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to create campaign', 'error');
+      }
+    });
+
+    // Auto-generate slug from campaign name
+    document.getElementById('campaignName').addEventListener('blur', () => {
+      const name = document.getElementById('campaignName').value.trim();
+      if (name && !document.getElementById('campaignSlug').value) {
+        const slug = name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        document.getElementById('campaignSlug').value = slug;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campaign Tracker - View Campaign</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="message"></div>
+
+    <!-- Campaign Header -->
+    <div class="campaign-header" id="campaignHeader">
+      <h1 id="campaignTitle">Loading...</h1>
+      <p id="campaignDescription" style="color: #888;"></p>
+    </div>
+
+    <!-- Main Amount Display -->
+    <div style="text-align: center;">
+      <div class="amount-display" id="accumulatedAmount">$0</div>
+      <div class="amount-target">of <span id="targetAmount">$0</span> goal</div>
+      
+      <!-- Progress Bar -->
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width: 0%;">0%</div>
+      </div>
+    </div>
+
+    <!-- Donations List -->
+    <div class="donations-list">
+      <h2>Recent Donations</h2>
+      <div id="donationsList" style="margin-top: 15px;">
+        <p style="color: #888; text-align: center;">Loading donations...</p>
+      </div>
+    </div>
+
+    <!-- Admin Section -->
+    <div class="admin-section" id="adminSection" style="display: none;">
+      <h2>📝 Admin Panel</h2>
+      <p style="color: #888; margin-bottom: 20px;">Add new donations to your campaign</p>
+      
+      <form id="donationForm">
+        <div class="form-group">
+          <label for="donorName">Donor Name</label>
+          <input type="text" id="donorName" placeholder="e.g., John Doe" required>
+        </div>
+
+        <div class="form-group">
+          <label for="donationAmount">Amount ($)</label>
+          <input type="number" id="donationAmount" placeholder="100" step="0.01" min="0" required>
+        </div>
+
+        <div class="form-group">
+          <label for="donationTimestamp">Date & Time</label>
+          <input type="datetime-local" id="donationTimestamp" required>
+        </div>
+
+        <button type="submit" style="width: 100%;">Add Donation</button>
+      </form>
+
+      <button class="secondary-btn" onclick="logoutAdmin()">Logout</button>
+    </div>
+
+    <!-- Non-Admin Login Section -->
+    <div id="loginSection" class="admin-section">
+      <h2>🔐 Admin Login</h2>
+      <p style="color: #888; margin-bottom: 20px;">Are you the campaign organizer? Login to add donations</p>
+      
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" placeholder="organizer@example.com" required>
+        </div>
+
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" placeholder="Enter password" required>
+        </div>
+
+        <button type="submit" style="width: 100%;">Login as Admin</button>
+      </form>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+      <a href="/" style="color: #667eea; text-decoration: none; font-weight: 500;">← Create a New Campaign</a>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    const slug = window.location.pathname.split('/')[2];
+    let isAdmin = false;
+
+    // Set default timestamp to now
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('donationTimestamp').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+    // Load campaign data
+    async function loadCampaign() {
+      try {
+        const response = await apiCall(`/api/campaigns/${slug}`);
+        
+        document.getElementById('campaignTitle').textContent = response.name;
+        document.getElementById('accumulatedAmount').textContent = formatCurrency(response.accumulated_amount);
+        document.getElementById('targetAmount').textContent = formatCurrency(response.target_amount);
+        
+        const progress = response.progressPercentage;
+        document.getElementById('progressFill').style.width = progress + '%';
+        document.getElementById('progressFill').textContent = Math.round(progress) + '%';
+
+        // Display donations
+        const donationsList = document.getElementById('donationsList');
+        if (response.donations && response.donations.length > 0) {
+          donationsList.innerHTML = response.donations.map(donation => `
+            <div class="donation-item">
+              <div class="donation-info">
+                <h3>${escapeHtml(donation.donor_name)}</h3>
+                <p>${formatDate(donation.timestamp)}</p>
+              </div>
+              <div class="donation-amount">${formatCurrency(donation.amount)}</div>
+              ${isAdmin ? `<button class="delete-btn" onclick="deleteDonation('${donation.id}')">Delete</button>` : ''}
+            </div>
+          `).join('');
+        } else {
+          donationsList.innerHTML = '<p style="color: #888; text-align: center;">No donations yet. Be the first to donate!</p>';
+        }
+      } catch (error) {
+        showMessage('message', 'Failed to load campaign', 'error');
+        console.error(error);
+      }
+    }
+
+    // Login handler
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        await apiCall('/api/auth/verify', 'POST', {
+          campaignSlug: slug,
+          email,
+          password
+        });
+
+        isAdmin = true;
+        localStorage.setItem(`admin_${slug}`, 'true');
+        localStorage.setItem(`admin_email_${slug}`, email);
+        localStorage.setItem(`admin_password_${slug}`, password);
+        
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('adminSection').style.display = 'block';
+        showMessage('message', 'Login successful!', 'success');
+      } catch (error) {
+        showMessage('message', 'Invalid credentials', 'error');
+      }
+    });
+
+    // Donation form handler
+    document.getElementById('donationForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const donorName = document.getElementById('donorName').value.trim();
+      const amount = parseFloat(document.getElementById('donationAmount').value);
+      const timestamp = new Date(document.getElementById('donationTimestamp').value).toISOString();
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      try {
+        await apiCall(`/api/donations/${slug}`, 'POST', {
+          donorName,
+          amount,
+          timestamp,
+          email,
+          password
+        });
+
+        showMessage('message', 'Donation added successfully!', 'success');
+        document.getElementById('donationForm').reset();
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to add donation', 'error');
+      }
+    });
+
+    function logoutAdmin() {
+      localStorage.removeItem(`admin_${slug}`);
+      localStorage.removeItem(`admin_email_${slug}`);
+      localStorage.removeItem(`admin_password_${slug}`);
+      isAdmin = false;
+      document.getElementById('loginSection').style.display = 'block';
+      document.getElementById('adminSection').style.display = 'none';
+      showMessage('message', 'Logged out successfully', 'success');
+      loadCampaign();
+    }
+
+    async function deleteDonation(donationId) {
+      if (!confirm('Are you sure you want to delete this donation?')) return;
+
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      try {
+        await apiCall(`/api/donations/${slug}/${donationId}`, 'DELETE', {
+          email,
+          password
+        });
+
+        showMessage('message', 'Donation deleted successfully', 'success');
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', 'Failed to delete donation', 'error');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Check if user is already logged in
+    if (localStorage.getItem(`admin_${slug}`) === 'true') {
+      isAdmin = true;
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('adminSection').style.display = 'block';
+    }
+
+    // Initial load
+    loadCampaign();
+
+    // Refresh campaign data every 30 seconds
+    setInterval(loadCampaign, 30000);
+  </script>
+</body>
+</html>
