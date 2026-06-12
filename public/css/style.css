@@ -492,6 +492,35 @@ button:active {
   box-shadow: none;
 }
 
+/* ---------- Bank slip reorder (organizer) ---------- */
+
+.bank-list.reorderable .bank-slip { cursor: grab; }
+.bank-list.reorderable .bank-slip:active { cursor: grabbing; }
+
+.bank-slip-grip {
+  flex-shrink: 0;
+  align-self: center;
+  letter-spacing: -3px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--gold);
+  cursor: grab;
+  transition: color 0.15s ease;
+}
+
+.bank-slip-grip:active { cursor: grabbing; }
+
+.bank-list.reorderable .bank-slip:hover .bank-slip-grip { color: var(--pine); }
+
+/* Keep grip + bank name grouped at the left, delete pinned right */
+.bank-list.reorderable .bank-slip-delete { margin-left: auto; }
+
+.bank-slip.dragging {
+  opacity: 0.5;
+  border-style: dashed;
+  box-shadow: 0 8px 20px rgba(26, 47, 38, 0.14);
+}
+
 .copy-btn.copied {
   color: var(--gold);
   border-color: var(--gold);

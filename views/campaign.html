@@ -49,6 +49,7 @@
     <!-- Bank Transfer Details -->
     <div class="bank-section" id="bankSection" style="display: none;">
       <div class="section-label">Bank Transfer Details</div>
+      <p class="doc-reorder-hint" id="bankReorderHint" style="display: none;">Drag slips to set the order donors see.</p>
       <div class="bank-list" id="bankList"></div>
     </div>
 
@@ -843,10 +844,14 @@
 
     // ==================== Bank transfer details ====================
 
+    let allBankDetails = [];
+
     function renderBankDetails(bankDetails) {
       bankDetailsCount = bankDetails.length;
+      allBankDetails = bankDetails;
       const section = document.getElementById('bankSection');
       const list = document.getElementById('bankList');
+      const hint = document.getElementById('bankReorderHint');
 
       if (!bankDetails.length) {
         section.style.display = 'none';
@@ -855,9 +860,18 @@
       }
 
       section.style.display = 'block';
-      list.innerHTML = bankDetails.map(bank => `
-        <div class="bank-slip">
+      list.classList.toggle('reorderable', isAdmin);
+      hint.style.display = isAdmin && bankDetails.length > 1 ? 'block' : 'none';
+
+      list.innerHTML = bankDetails.map(bank => {
+        const grip = isAdmin
+          ? `<span class="bank-slip-grip" aria-hidden="true">&#8942;&#8942;</span>`
+          : '';
+        const dragAttr = isAdmin ? ' draggable="true"' : '';
+        return `
+        <div class="bank-slip" data-bank-id="${bank.id}"${dragAttr}>
           <div class="bank-slip-head">
+            ${grip}
             <span class="bank-slip-bank">${escapeHtml(bank.bank_name)}</span>
             ${isAdmin ? `<button class="delete-btn bank-slip-delete" data-bank-id="${bank.id}">Delete</button>` : ''}
           </div>
@@ -866,8 +880,8 @@
             <span class="account-number">${escapeHtml(bank.account_number)}</span>
             <button class="copy-btn" data-copy="${escapeHtml(bank.account_number)}" aria-label="Copy account number">Copy</button>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
 
     document.getElementById('bankList').addEventListener('click', async (e) => {
@@ -889,6 +903,58 @@
 
       const deleteBtn = e.target.closest('.bank-slip-delete');
       if (deleteBtn) deleteBankDetail(deleteBtn.dataset.bankId);
+    });
+
+    // ==================== Organizer drag-to-reorder (bank slips) ====================
+
+    const bankList = document.getElementById('bankList');
+    let draggedSlip = null;
+
+    bankList.addEventListener('dragstart', (e) => {
+      const slip = e.target.closest('.bank-slip');
+      if (!isAdmin || !slip) return;
+      draggedSlip = slip;
+      slip.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', slip.dataset.bankId);
+    });
+
+    bankList.addEventListener('dragover', (e) => {
+      if (!draggedSlip) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const target = e.target.closest('.bank-slip');
+      if (!target || target === draggedSlip) return;
+      const rect = target.getBoundingClientRect();
+      const after = e.clientY > rect.top + rect.height / 2;
+      bankList.insertBefore(draggedSlip, after ? target.nextSibling : target);
+    });
+
+    bankList.addEventListener('drop', (e) => {
+      if (draggedSlip) e.preventDefault();
+    });
+
+    bankList.addEventListener('dragend', async () => {
+      if (!draggedSlip) return;
+      draggedSlip.classList.remove('dragging');
+      draggedSlip = null;
+
+      const orderedIds = [...bankList.querySelectorAll('.bank-slip')].map(s => s.dataset.bankId);
+      if (orderedIds.join(',') === allBankDetails.map(b => b.id).join(',')) return;
+
+      const banksById = new Map(allBankDetails.map(b => [b.id, b]));
+      renderBankDetails(orderedIds.map(id => banksById.get(id)));
+
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      try {
+        await apiCall(`/api/bank-details/${slug}/reorder`, 'PUT', { email, password, order: orderedIds });
+        showMessage('message', 'Bank order saved', 'success');
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to save bank order', 'error');
+        loadCampaign();
+      }
     });
 
     document.getElementById('bankForm').addEventListener('submit', async (e) => {
