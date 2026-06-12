@@ -429,15 +429,23 @@
         </label>`;
       }
 
+      // A card donation is real money that moved through Safepay: its amount is
+      // immutable and it can't be deleted (issue #8). So the organizer gets a
+      // name-only Edit and no Delete affordance; manual donations keep both.
+      const isCard = donation.payment_method === 'card';
       const adminActions = isAdmin ? `
         <button class="edit-btn" type="button" data-edit-id="${donation.id}">Edit</button>
-        <button class="delete-btn" type="button" data-delete-id="${donation.id}">Delete</button>
+        ${isCard ? '' : `<button class="delete-btn" type="button" data-delete-id="${donation.id}">Delete</button>`}
       ` : '';
+
+      const cardTag = isCard
+        ? '<span class="donation-card-tag" title="Paid by card via Safepay">Card</span>'
+        : '';
 
       return `
         <div class="donation-item${isAdmin ? ' donation-item--admin' : ''}" data-donation-id="${donation.id}">
           <div class="donation-info">
-            <h3>${escapeHtml(donation.donor_name)}</h3>
+            <h3>${escapeHtml(donation.donor_name || 'Anonymous')}${cardTag}</h3>
             <p>${formatDate(donation.timestamp)}</p>
           </div>
           <div class="donation-item-actions">
@@ -642,20 +650,26 @@
       const item = donationsList.querySelector(`.donation-item[data-donation-id="${donationId}"]`);
       if (!item) return;
 
+      // A card donation's amount and confirmation date are immutable real-money
+      // facts (#8) — show them but lock them so only the display name is
+      // editable. Manual donations stay fully editable.
+      const isCard = donation.payment_method === 'card';
+      const lockedAttr = isCard ? 'disabled' : '';
+
       item.innerHTML = `
         <form class="donation-edit-form" data-edit-id="${donationId}">
           <div class="donation-edit-fields">
             <div class="form-group" style="margin-bottom:0;">
               <label>Donor Name</label>
-              <input type="text" class="donation-edit-name" value="${escapeHtml(donation.donor_name)}" required>
+              <input type="text" class="donation-edit-name" value="${escapeHtml(donation.donor_name || '')}" required>
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label>Amount</label>
-              <input type="number" class="donation-edit-amount" value="${donation.amount}" step="0.01" min="0" required>
+              <label>Amount${isCard ? ' (locked — paid by card)' : ''}</label>
+              <input type="number" class="donation-edit-amount" value="${donation.amount}" step="0.01" min="0" required ${lockedAttr}>
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label>Date &amp; Time</label>
-              <input type="datetime-local" class="donation-edit-date" value="${toLocalDatetimeValue(donation.timestamp)}" required>
+              <label>Date &amp; Time${isCard ? ' (locked)' : ''}</label>
+              <input type="datetime-local" class="donation-edit-date" value="${toLocalDatetimeValue(donation.timestamp)}" required ${lockedAttr}>
             </div>
           </div>
           <div class="donation-edit-btns">

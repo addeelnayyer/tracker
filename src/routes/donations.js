@@ -7,6 +7,18 @@ const firebase = require('../firebase');
 
 const verifyPassword = (password, hash) => bcrypt.compareSync(password, hash);
 
+// A card donation is real money that moved through Safepay (issue #8). Its
+// amount is immutable and a confirmed one is undeletable — either change would
+// desync the recorded campaign total from money that genuinely moved. Manual
+// donations (no payment_method) keep full edit/delete behavior.
+const isCardDonation = (d) => d && d.payment_method === 'card';
+
+// Whether a donation's amount is currently reflected in the campaign total.
+// Manual donations always count; a card donation counts only once confirmed
+// (pending/failed card records never touched the total).
+const contributesToTotal = (d) =>
+  !isCardDonation(d) || d.payment_status === 'confirmed';
+
 const proofUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
@@ -71,6 +83,18 @@ router.put('/:campaignSlug/:donationId', async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Donation not found' });
 
     const newAmount = parseFloat(amount);
+
+    // Card donation: the amount and confirmation timestamp are immutable; only
+    // the display name may be corrected (typo fix / mark anonymous). An attempt
+    // to change the amount is rejected and nothing is written or re-totalled.
+    if (isCardDonation(existing)) {
+      if (newAmount !== existing.amount) {
+        return res.status(403).json({ error: 'The amount of a card donation cannot be edited' });
+      }
+      await firebase.updateDonation(campaign.id, donationId, { donor_name: donorName });
+      return res.json({ success: true });
+    }
+
     await firebase.updateDonation(campaign.id, donationId, {
       donor_name: donorName,
       amount: newAmount,
@@ -142,8 +166,20 @@ router.delete('/:campaignSlug/:donationId', async (req, res) => {
     const donation = donations.find(d => d.id === donationId);
     if (!donation) return res.status(404).json({ error: 'Donation not found' });
 
+    // A confirmed card donation is real money that moved — deleting it would
+    // desync the total. (Refunds/chargebacks are handled in the Safepay
+    // dashboard, out of scope here.) Pending/abandoned card records may still be
+    // removed.
+    if (isCardDonation(donation) && donation.payment_status === 'confirmed') {
+      return res.status(403).json({ error: 'A confirmed card donation cannot be deleted' });
+    }
+
     await firebase.deleteDonation(campaign.id, donationId);
-    await firebase.incrementCampaignAmount(campaignSlug, -donation.amount);
+    // Only decrement by what the donation actually contributed: manual records
+    // and confirmed cards count; a pending card never touched the total.
+    if (contributesToTotal(donation)) {
+      await firebase.incrementCampaignAmount(campaignSlug, -donation.amount);
+    }
 
     res.json({ success: true });
   } catch (error) {

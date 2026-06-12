@@ -615,6 +615,23 @@ button:active {
   color: var(--ink-faint);
 }
 
+/* Card-paid donations: a small inline marker next to the donor name so the
+   organizer can see at a glance why the amount/delete controls are locked (#8). */
+.donation-card-tag {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 7px;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pine-deep);
+  background: rgba(20, 83, 45, 0.08);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
 /* Right-side wrapper: amount + proof icon + admin buttons */
 .donation-item-actions {
   display: flex;
