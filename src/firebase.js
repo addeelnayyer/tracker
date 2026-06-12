@@ -16,17 +16,25 @@ const serviceAccount = {
 };
 
 let firebase;
+const hasServiceAccountKey = Boolean(process.env.SA_PRIVATE_KEY);
 
 try {
   firebase = admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    // Fall back to Application Default Credentials when the SA key isn't
+    // present (e.g. the deploy-time "analyzing source code" step, where
+    // Secret Manager secrets are not yet injected). Without this, module
+    // load throws and the functions deploy is silently skipped.
+    credential: hasServiceAccountKey
+      ? admin.credential.cert(serviceAccount)
+      : admin.credential.applicationDefault(),
     databaseURL: process.env.DB_URL,
     storageBucket: process.env.STORAGE_BUCKET
   });
   console.log('Firebase initialized successfully');
 } catch (error) {
+  // Do NOT process.exit(1) here — it kills the deploy-time source analysis
+  // subprocess, which makes Firebase skip the functions deploy entirely.
   console.error('Firebase initialization error:', error);
-  process.exit(1);
 }
 
 const db = admin.database();
