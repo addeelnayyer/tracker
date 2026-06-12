@@ -71,7 +71,7 @@ router.get('/:slug', async (req, res) => {
 
     // Newest first; donationsLimit caps the page size (omit to get all)
     const sortedDonations = donations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const donationsLimit = parseInt(req.query.donationsLimit, 10);
+    const donationsLimit = parseInt(req.query?.donationsLimit, 10);
     const pagedDonations = donationsLimit > 0 ? sortedDonations.slice(0, donationsLimit) : sortedDonations;
 
     const progressPercentage = (campaign.accumulated_amount / campaign.target_amount) * 100;
