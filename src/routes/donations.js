@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { v4: uuidv4 } = require('uuid');
-const db = require('../db');
+const bcrypt = require('bcryptjs');
+const firebase = require('../firebase');
+
+// Verify password
+const verifyPassword = (password, hash) => {
+  return bcrypt.compareSync(password, hash);
+};
 
 // Add a donation (requires authentication)
 router.post('/:campaignSlug', async (req, res) => {
@@ -14,34 +19,32 @@ router.post('/:campaignSlug', async (req, res) => {
     }
 
     // Get campaign and verify credentials
-    const campaign = await db.get(
-      `SELECT id, password_hash FROM campaigns WHERE slug = ?`,
-      [campaignSlug]
-    );
+    const campaign = await firebase.getCampaign(campaignSlug);
 
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
-    if (campaign.email !== email || !db.verifyPassword(password, campaign.password_hash)) {
+    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Add donation
-    const donationId = uuidv4();
     const donationAmount = parseFloat(amount);
     const donationTimestamp = new Date(timestamp).toISOString();
 
-    await db.run(
-      `INSERT INTO donations (id, campaign_id, donor_name, amount, timestamp) VALUES (?, ?, ?, ?, ?)`,
-      [donationId, campaign.id, donorName, donationAmount, donationTimestamp]
-    );
+    const donationData = {
+      donor_name: donorName,
+      amount: donationAmount,
+      timestamp: donationTimestamp,
+      created_at: new Date().toISOString()
+    };
+
+    const donationId = await firebase.addDonation(campaign.id, donationData);
 
     // Update campaign accumulated amount
-    await db.run(
-      `UPDATE campaigns SET accumulated_amount = accumulated_amount + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      [donationAmount, campaign.id]
-    );
+    const newAccumulatedAmount = campaign.accumulated_amount + donationAmount;
+    await firebase.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
 
     res.json({ success: true, donationId });
   } catch (error) {
@@ -57,40 +60,30 @@ router.delete('/:campaignSlug/:donationId', async (req, res) => {
     const { email, password } = req.body;
 
     // Get campaign and verify credentials
-    const campaign = await db.get(
-      `SELECT id, password_hash, email FROM campaigns WHERE slug = ?`,
-      [campaignSlug]
-    );
+    const campaign = await firebase.getCampaign(campaignSlug);
 
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
-    if (campaign.email !== email || !db.verifyPassword(password, campaign.password_hash)) {
+    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Get donation amount before deleting
-    const donation = await db.get(
-      `SELECT amount FROM donations WHERE id = ? AND campaign_id = ?`,
-      [donationId, campaign.id]
-    );
+    // Get donation to retrieve amount
+    const donations = await firebase.getDonations(campaign.id);
+    const donation = donations.find(d => d.id === donationId);
 
     if (!donation) {
       return res.status(404).json({ error: 'Donation not found' });
     }
 
     // Delete donation
-    await db.run(
-      `DELETE FROM donations WHERE id = ? AND campaign_id = ?`,
-      [donationId, campaign.id]
-    );
+    await firebase.deleteDonation(campaign.id, donationId);
 
     // Update campaign accumulated amount
-    await db.run(
-      `UPDATE campaigns SET accumulated_amount = accumulated_amount - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      [donation.amount, campaign.id]
-    );
+    const newAccumulatedAmount = campaign.accumulated_amount - donation.amount;
+    await firebase.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
 
     res.json({ success: true });
   } catch (error) {

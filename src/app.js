@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
-const db = require('./db');
+const firebase = require('./firebase');
 const campaignRoutes = require('./routes/campaigns');
 const donationRoutes = require('./routes/donations');
 const authRoutes = require('./routes/auth');
@@ -22,9 +22,6 @@ app.use(session({
   saveUninitialized: true,
   cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 }
 }));
-
-// Initialize database
-db.init();
 
 // View engine
 app.set('view engine', 'html');

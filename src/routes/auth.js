@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const bcrypt = require('bcryptjs');
+const firebase = require('../firebase');
+
+// Verify password
+const verifyPassword = (password, hash) => {
+  return bcrypt.compareSync(password, hash);
+};
 
 // Verify campaign credentials
 router.post('/verify', async (req, res) => {
@@ -11,16 +17,13 @@ router.post('/verify', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const campaign = await db.get(
-      `SELECT id, email, password_hash FROM campaigns WHERE slug = ?`,
-      [campaignSlug]
-    );
+    const campaign = await firebase.getCampaign(campaignSlug);
 
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
-    if (campaign.email !== email || !db.verifyPassword(password, campaign.password_hash)) {
+    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
