@@ -73,87 +73,7 @@
       </div>
     </div>
 
-    <!-- Admin Section -->
-    <div class="admin-section" id="adminSection" style="display: none;">
-      <h2>Organizer Panel</h2>
-      <p class="lede">Record new donations to your campaign.</p>
-
-      <form id="donationForm">
-        <div class="form-group">
-          <label for="donorName">Donor Name</label>
-          <input type="text" id="donorName" placeholder="e.g., John Doe" required>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="donationAmount">Amount (<span id="donationCurrencyLabel">USD</span>)</label>
-            <input type="number" id="donationAmount" placeholder="100" step="0.01" min="0" required>
-          </div>
-
-          <div class="form-group">
-            <label for="donationTimestamp">Date &amp; Time</label>
-            <input type="datetime-local" id="donationTimestamp" required>
-          </div>
-        </div>
-
-        <button type="submit" class="block-btn">Record Donation</button>
-      </form>
-
-      <p class="proof-tip">Tip: drag an image or PDF onto any donation row to attach payment proof.</p>
-
-      <div class="section-label" style="margin-top: 28px;">Bank Accounts</div>
-      <p class="lede" style="font-size: 14px; margin-bottom: 18px;">Add the accounts donors can transfer to. They appear on the public page.</p>
-      <form id="bankForm">
-        <div class="form-group">
-          <label for="bankName">Bank Name</label>
-          <input type="text" id="bankName" placeholder="e.g., Meezan Bank" maxlength="140" required>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="accountTitle">Account Title</label>
-            <input type="text" id="accountTitle" placeholder="e.g., John Doe" maxlength="140" required>
-          </div>
-
-          <div class="form-group">
-            <label for="accountNumber">Account Number / IBAN</label>
-            <input type="text" id="accountNumber" placeholder="e.g., PK36 SCBL 0000 0011 2345 6702" maxlength="140" required>
-          </div>
-        </div>
-
-        <button type="submit" class="block-btn">Add Bank Account</button>
-      </form>
-
-      <div class="section-label" style="margin-top: 28px;">Upload Documents</div>
-      <div class="drag-drop-area" id="dropArea" role="button" tabindex="0"
-           aria-label="Upload documents: drag and drop or press Enter to browse">
-        <div class="drag-drop-glyph">&#10515;</div>
-        <p>Drag &amp; drop images or PDFs</p>
-        <small>or click to browse — up to 10 files, 50&nbsp;MB each</small>
-      </div>
-      <input type="file" id="fileInput" multiple
-             accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf">
-      <div class="upload-queue" id="uploadQueue"></div>
-
-      <div class="section-label" style="margin-top: 28px;">Change Password</div>
-      <form id="changePasswordForm">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="newPassword">New Password</label>
-            <input type="password" id="newPassword" placeholder="At least 8 characters" minlength="8" required>
-          </div>
-
-          <div class="form-group">
-            <label for="confirmPassword">Confirm Password</label>
-            <input type="password" id="confirmPassword" placeholder="Re-enter new password" minlength="8" required>
-          </div>
-        </div>
-
-        <button type="submit" class="block-btn">Update Password</button>
-      </form>
-
-      <button class="secondary-btn" onclick="logoutAdmin()" style="margin-top: 28px;">Log Out</button>
-    </div>
+    <!-- Organizer tools live in the drawer (#organizerDrawer) below -->
 
     <!-- Non-Admin Login Section -->
     <div id="loginSection" class="admin-section">
@@ -216,6 +136,140 @@
     <button class="lightbox-nav next" id="lightboxNext" aria-label="Next image">&#8594;</button>
     <div class="lightbox-caption" id="lightboxCaption"></div>
   </div>
+
+  <!-- Organizer drawer -->
+  <button class="drawer-tab" id="drawerTab" type="button" aria-controls="organizerDrawer" aria-expanded="false">
+    <span class="drawer-tab-dot" aria-hidden="true"></span>
+    <span>Organizer Desk</span>
+  </button>
+
+  <div class="drawer-scrim" id="drawerScrim"></div>
+
+  <aside class="drawer" id="organizerDrawer" role="dialog" aria-modal="true" aria-label="Organizer desk" aria-hidden="true">
+    <header class="drawer-head">
+      <div>
+        <span class="drawer-eyebrow">Campaign Ledger</span>
+        <h2 class="drawer-title">Organizer Desk</h2>
+      </div>
+      <button class="drawer-close" id="drawerClose" type="button" aria-label="Close organizer desk">&#10005;</button>
+    </header>
+
+    <div class="drawer-body">
+      <div id="drawerMessage"></div>
+
+      <details class="drawer-section" open>
+        <summary>
+          <span class="drawer-section-no">01</span>
+          <span class="drawer-section-title">Record a Donation</span>
+          <span class="drawer-section-marker" aria-hidden="true"></span>
+        </summary>
+        <div class="drawer-section-body">
+          <form id="donationForm">
+            <div class="form-group">
+              <label for="donorName">Donor Name</label>
+              <input type="text" id="donorName" placeholder="e.g., John Doe" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="donationAmount">Amount (<span id="donationCurrencyLabel">USD</span>)</label>
+                <input type="number" id="donationAmount" placeholder="100" step="0.01" min="0" required>
+              </div>
+
+              <div class="form-group">
+                <label for="donationTimestamp">Date &amp; Time</label>
+                <input type="datetime-local" id="donationTimestamp" required>
+              </div>
+            </div>
+
+            <button type="submit" class="block-btn">Record Donation</button>
+          </form>
+          <p class="proof-tip">Tip: drag an image or PDF onto any donation row to attach payment proof.</p>
+        </div>
+      </details>
+
+      <details class="drawer-section">
+        <summary>
+          <span class="drawer-section-no">02</span>
+          <span class="drawer-section-title">Bank Accounts</span>
+          <span class="drawer-section-marker" aria-hidden="true"></span>
+        </summary>
+        <div class="drawer-section-body">
+          <p class="drawer-note">Add the accounts donors can transfer to. They appear on the public page.</p>
+          <form id="bankForm">
+            <div class="form-group">
+              <label for="bankName">Bank Name</label>
+              <input type="text" id="bankName" placeholder="e.g., Meezan Bank" maxlength="140" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="accountTitle">Account Title</label>
+                <input type="text" id="accountTitle" placeholder="e.g., John Doe" maxlength="140" required>
+              </div>
+
+              <div class="form-group">
+                <label for="accountNumber">Account Number / IBAN</label>
+                <input type="text" id="accountNumber" placeholder="e.g., PK36 SCBL 0000 0011 2345 6702" maxlength="140" required>
+              </div>
+            </div>
+
+            <button type="submit" class="block-btn">Add Bank Account</button>
+          </form>
+        </div>
+      </details>
+
+      <details class="drawer-section">
+        <summary>
+          <span class="drawer-section-no">03</span>
+          <span class="drawer-section-title">Documents</span>
+          <span class="drawer-section-marker" aria-hidden="true"></span>
+        </summary>
+        <div class="drawer-section-body">
+          <p class="drawer-note">Images and PDFs shown in the campaign gallery.</p>
+          <div class="drag-drop-area" id="dropArea" role="button" tabindex="0"
+               aria-label="Upload documents: drag and drop or press Enter to browse">
+            <div class="drag-drop-glyph">&#10515;</div>
+            <p>Drag &amp; drop images or PDFs</p>
+            <small>or click to browse — up to 10 files, 50&nbsp;MB each</small>
+          </div>
+          <input type="file" id="fileInput" multiple
+                 accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf">
+          <div class="upload-queue" id="uploadQueue"></div>
+        </div>
+      </details>
+
+      <details class="drawer-section">
+        <summary>
+          <span class="drawer-section-no">04</span>
+          <span class="drawer-section-title">Account &amp; Security</span>
+          <span class="drawer-section-marker" aria-hidden="true"></span>
+        </summary>
+        <div class="drawer-section-body">
+          <form id="changePasswordForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="newPassword">New Password</label>
+                <input type="password" id="newPassword" placeholder="At least 8 characters" minlength="8" required>
+              </div>
+
+              <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <input type="password" id="confirmPassword" placeholder="Re-enter new password" minlength="8" required>
+              </div>
+            </div>
+
+            <button type="submit" class="block-btn">Update Password</button>
+          </form>
+        </div>
+      </details>
+    </div>
+
+    <footer class="drawer-foot">
+      <span class="drawer-foot-note">Signed in as organizer</span>
+      <button class="secondary-btn drawer-logout" type="button" onclick="logoutAdmin()">Log Out</button>
+    </footer>
+  </aside>
 
   <script src="/js/app.js"></script>
   <script>
@@ -602,8 +656,8 @@
         localStorage.setItem(`admin_email_${slug}`, email);
         localStorage.setItem(`admin_password_${slug}`, password);
 
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('adminSection').style.display = 'block';
+        setAdminMode(true);
+        openDrawer();
         showMessage('message', 'Login successful!', 'success');
         loadCampaign();
         loadDocuments();
@@ -682,8 +736,8 @@
 
         document.getElementById('resetPasswordForm').reset();
         document.getElementById('resetPasswordForm').style.display = 'none';
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('adminSection').style.display = 'block';
+        setAdminMode(true);
+        openDrawer();
         showMessage('message', 'Password reset — you are now signed in', 'success');
         loadCampaign();
         loadDocuments();
@@ -721,9 +775,8 @@
       localStorage.removeItem(`admin_${slug}`);
       localStorage.removeItem(`admin_email_${slug}`);
       localStorage.removeItem(`admin_password_${slug}`);
-      isAdmin = false;
-      document.getElementById('loginSection').style.display = 'block';
-      document.getElementById('adminSection').style.display = 'none';
+      setAdminMode(false);
+      closeDrawer();
       showMessage('message', 'Logged out successfully', 'success');
       loadCampaign();
       loadDocuments();
@@ -1152,12 +1205,79 @@
       else prevSlide();
     }, { passive: true });
 
+    // ==================== Organizer drawer ====================
+
+    const drawer = document.getElementById('organizerDrawer');
+    const drawerTab = document.getElementById('drawerTab');
+    const drawerScrim = document.getElementById('drawerScrim');
+    const drawerClose = document.getElementById('drawerClose');
+
+    function setAdminMode(on) {
+      isAdmin = on;
+      document.body.classList.toggle('admin-mode', on);
+      document.getElementById('loginSection').style.display = on ? 'none' : 'block';
+    }
+
+    function openDrawer() {
+      drawer.classList.add('open');
+      drawerScrim.classList.add('open');
+      drawer.setAttribute('aria-hidden', 'false');
+      drawerTab.setAttribute('aria-expanded', 'true');
+      document.body.classList.add('drawer-open');
+      drawerClose.focus();
+    }
+
+    function closeDrawer() {
+      drawer.classList.remove('open');
+      drawerScrim.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+      drawerTab.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('drawer-open');
+      if (document.body.classList.contains('admin-mode')) drawerTab.focus();
+    }
+
+    drawerTab.addEventListener('click', openDrawer);
+    drawerClose.addEventListener('click', closeDrawer);
+    drawerScrim.addEventListener('click', closeDrawer);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !drawer.classList.contains('open')) return;
+      if (lightbox.classList.contains('open')) return;
+      closeDrawer();
+    });
+
+    // Keep focus inside the drawer while it is open
+    drawer.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusables = [...drawer.querySelectorAll('summary, button, input, select, textarea, a[href]')]
+        .filter((el) => el.offsetParent !== null);
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    // Status messages raised while the drawer is open land inside it,
+    // where the organizer can actually see them.
+    const pageShowMessage = showMessage;
+    showMessage = (elementId, text, type) => {
+      if (elementId === 'message' && drawer.classList.contains('open')) {
+        pageShowMessage('drawerMessage', text, type);
+      } else {
+        pageShowMessage(elementId, text, type);
+      }
+    };
+
     // ==================== Init ====================
 
     if (localStorage.getItem(`admin_${slug}`) === 'true') {
-      isAdmin = true;
-      document.getElementById('loginSection').style.display = 'none';
-      document.getElementById('adminSection').style.display = 'block';
+      setAdminMode(true);
     }
 
     loadCampaign();

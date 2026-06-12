@@ -1250,3 +1250,305 @@ body.lightbox-open { overflow: hidden; }
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Organizer drawer ---------- */
+
+.drawer-tab {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 90;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  writing-mode: vertical-rl;
+  padding: 20px 11px;
+  font-family: "Karla", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--pine);
+  border: 1px solid var(--pine-deep);
+  border-right: none;
+  border-radius: var(--radius) 0 0 var(--radius);
+  box-shadow: -8px 8px 28px -10px rgba(20, 61, 47, 0.55);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+body.admin-mode .drawer-tab { display: inline-flex; }
+
+.drawer-tab:hover,
+.drawer-tab:focus-visible {
+  background: var(--pine-deep);
+  transform: translateY(-50%) translateX(-3px);
+}
+
+.drawer-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px rgba(176, 125, 44, 0.3);
+}
+
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: rgba(13, 20, 17, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.drawer-scrim.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 96;
+  width: min(460px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border-left: 1px solid var(--hairline-strong);
+  box-shadow: -28px 0 72px -28px rgba(13, 20, 17, 0.5);
+  transform: translateX(calc(100% + 48px));
+  visibility: hidden;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.45s;
+}
+
+.drawer.open {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+/* Gold filing edge along the drawer's spine, echoing the bank slips */
+.drawer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--gold) 0 8px,
+    transparent 8px 13px
+  );
+}
+
+body.drawer-open { overflow: hidden; }
+
+.drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 26px 28px 18px;
+  border-bottom: 1px dashed var(--hairline-strong);
+}
+
+.drawer-eyebrow {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 5px;
+}
+
+.drawer-title {
+  font-family: "Fraunces", serif;
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--pine-deep);
+  margin: 0;
+}
+
+.drawer-close {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 15px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.3s ease;
+}
+
+.drawer-close:hover,
+.drawer-close:focus-visible {
+  background: var(--pine-wash);
+  color: var(--pine-deep);
+  transform: rotate(90deg);
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 28px 20px;
+}
+
+.drawer-body .form-row {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.drawer-section {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.drawer.open .drawer-section {
+  animation: section-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.drawer.open .drawer-section:nth-child(2) { animation-delay: 0.08s; }
+.drawer.open .drawer-section:nth-child(3) { animation-delay: 0.14s; }
+.drawer.open .drawer-section:nth-child(4) { animation-delay: 0.20s; }
+.drawer.open .drawer-section:nth-child(5) { animation-delay: 0.26s; }
+
+.drawer-section summary {
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 18px 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.drawer-section summary::-webkit-details-marker { display: none; }
+
+.drawer-section summary:focus-visible {
+  outline: 2px solid var(--pine);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.drawer-section-no {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--gold);
+}
+
+.drawer-section-title {
+  flex: 1;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  transition: color 0.2s ease;
+}
+
+.drawer-section summary:hover .drawer-section-title,
+.drawer-section[open] .drawer-section-title {
+  color: var(--pine-deep);
+}
+
+.drawer-section-marker {
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+}
+
+.drawer-section-marker::before {
+  content: "+";
+  font-family: "Fraunces", serif;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--ink-faint);
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.drawer-section[open] .drawer-section-marker::before {
+  transform: rotate(45deg);
+  color: var(--gold);
+}
+
+.drawer-section-body {
+  padding: 4px 2px 26px;
+  animation: section-rise 0.35s ease both;
+}
+
+.drawer-note {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin: 0 0 16px;
+}
+
+.drawer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 28px;
+  border-top: 1px dashed var(--hairline-strong);
+  background: var(--card);
+}
+
+.drawer-foot-note {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.drawer-foot .secondary-btn {
+  margin-top: 0;
+  width: auto;
+  padding-left: 22px;
+  padding-right: 22px;
+}
+
+@media (max-width: 768px) {
+  .drawer {
+    width: 100%;
+    border-left: none;
+  }
+
+  .drawer-tab {
+    top: auto;
+    bottom: 18px;
+    right: 16px;
+    transform: none;
+    writing-mode: horizontal-tb;
+    padding: 13px 22px;
+    border-right: 1px solid var(--pine-deep);
+    border-radius: 999px;
+    box-shadow: 0 12px 32px -10px rgba(20, 61, 47, 0.6);
+  }
+
+  .drawer-tab:hover,
+  .drawer-tab:focus-visible {
+    transform: translateY(-2px);
+  }
+
+  .drawer-head,
+  .drawer-body,
+  .drawer-foot {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
