@@ -41,8 +41,7 @@ router.post('/:campaignSlug', async (req, res) => {
     };
 
     const donationId = await firebase.addDonation(campaign.id, donationData);
-    const newAccumulatedAmount = campaign.accumulated_amount + donationAmount;
-    await firebase.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
+    await firebase.incrementCampaignAmount(campaignSlug, donationAmount);
 
     res.json({ success: true, donationId });
   } catch (error) {
@@ -78,8 +77,8 @@ router.put('/:campaignSlug/:donationId', async (req, res) => {
       timestamp: new Date(timestamp).toISOString()
     });
 
-    const newAccumulatedAmount = campaign.accumulated_amount - existing.amount + newAmount;
-    await firebase.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
+    // Apply only the difference so a concurrent donation write isn't clobbered.
+    await firebase.incrementCampaignAmount(campaignSlug, newAmount - existing.amount);
 
     res.json({ success: true });
   } catch (error) {
@@ -144,8 +143,7 @@ router.delete('/:campaignSlug/:donationId', async (req, res) => {
     if (!donation) return res.status(404).json({ error: 'Donation not found' });
 
     await firebase.deleteDonation(campaign.id, donationId);
-    const newAccumulatedAmount = campaign.accumulated_amount - donation.amount;
-    await firebase.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
+    await firebase.incrementCampaignAmount(campaignSlug, -donation.amount);
 
     res.json({ success: true });
   } catch (error) {

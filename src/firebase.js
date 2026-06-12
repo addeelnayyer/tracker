@@ -103,6 +103,21 @@ const updateCampaignAmount = async (campaignSlug, newAmount) => {
   }
 };
 
+// Atomically adjust a campaign's accumulated total by `delta` (which may be
+// negative). Uses a server-side increment so concurrent donation writes can't
+// lose an update the way a JavaScript read-modify-write of accumulated_amount
+// would — the RTDB applies the delta to whatever value is current on the server.
+const incrementCampaignAmount = async (campaignSlug, delta) => {
+  try {
+    await db
+      .ref(`campaigns/${campaignSlug}/accumulated_amount`)
+      .set(admin.database.ServerValue.increment(delta));
+  } catch (error) {
+    console.error('Error incrementing campaign amount:', error);
+    throw error;
+  }
+};
+
 const deleteDonation = async (campaignId, donationId) => {
   try {
     await db.ref(`donations/${campaignId}/${donationId}`).remove();
