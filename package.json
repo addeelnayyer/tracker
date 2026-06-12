@@ -14,6 +14,7 @@
     "firebase",
     "documents"
   ],
+  "packageManager": "pnpm@11.6.0",
   "author": "addeelnayyer",
   "license": "MIT",
   "dependencies": {
