@@ -23,7 +23,14 @@ app.set('trust proxy', true);
 // body, consuming the stream; re-parsing here throws "stream is not readable".
 // Only parse when running standalone (local `node`), where the stream is fresh.
 if (!process.env.K_SERVICE) {
-  app.use(bodyParser.json({ limit: '50mb' }));
+  // Stash the exact raw bytes on req.rawBody so the Safepay webhook can verify
+  // its HMAC-SHA512 signature locally. On Cloud Functions the runtime already
+  // provides req.rawBody; this verify shim makes the handler identical in both
+  // environments without a competing express.raw() mount (ADR 0001 §3).
+  app.use(bodyParser.json({
+    limit: '50mb',
+    verify: (req, _res, buf) => { req.rawBody = buf; },
+  }));
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 }
 app.use(express.static(path.join(__dirname, '../public')));

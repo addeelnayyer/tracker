@@ -9,6 +9,12 @@ const SECRETS = [
   'SA_CLIENT_EMAIL',
   'SA_CLIENT_ID',
   'SESSION_SECRET',
+  // Safepay — sensitive, injected from Secret Manager (ADR 0001). The merchant
+  // API/secret keys sign session setup; the endpoint shared secret verifies
+  // webhook HMACs. SAFEPAY_ENV and PUBLIC_BASE_URL stay in .env (non-sensitive).
+  'SAFEPAY_API_KEY',
+  'SAFEPAY_SECRET_KEY',
+  'SAFEPAY_WEBHOOK_SECRET',
 ];
 
 exports.api = onRequest({ region: 'us-central1', secrets: SECRETS, invoker: 'public' }, app);

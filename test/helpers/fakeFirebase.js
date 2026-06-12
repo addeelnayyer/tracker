@@ -16,6 +16,7 @@
 
 let campaigns = {}; // slug -> campaign object (includes accumulated_amount, id)
 let donations = {}; // campaignId -> { donationId -> donationData }
+let paymentRefs = {}; // providerRef (tracker) -> { campaignId, campaignSlug, donationId }
 let donationSeq = 0;
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
@@ -23,6 +24,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
 const reset = () => {
   campaigns = {};
   donations = {};
+  paymentRefs = {};
   donationSeq = 0;
 };
 
@@ -80,6 +82,39 @@ const incrementCampaignAmount = async (slug, delta) => {
   }
 };
 
+// Tracker -> donation location index, so the single global webhook can find a
+// pending donation by the Safepay tracker id alone (it doesn't know the campaign).
+const setPaymentRef = async (providerRef, ref) => {
+  await tick();
+  paymentRefs[providerRef] = { ...ref };
+};
+
+const getPaymentRef = async (providerRef) => {
+  await tick();
+  const ref = paymentRefs[providerRef];
+  return ref ? { ...ref } : null;
+};
+
+// Idempotent pending->confirmed flip + one-time increment. Mirrors the real
+// RTDB transaction: a single `tick` then a synchronous read-check-write so two
+// concurrent confirms for the same donation serialize — the first flips and
+// increments, the second observes `confirmed` and is a no-op. Returns
+// { confirmed } (true only for the delivery that performed the flip).
+const confirmCardDonation = async (campaignSlug, campaignId, donationId, confirmedAt) => {
+  await tick();
+  const map = donations[campaignId] || {};
+  const donation = map[donationId];
+  if (!donation || donation.payment_status !== 'pending') return { confirmed: false };
+  donation.payment_status = 'confirmed';
+  donation.timestamp = confirmedAt;
+  donation.confirmed_at = confirmedAt;
+  if (campaigns[campaignSlug]) {
+    campaigns[campaignSlug].accumulated_amount =
+      (campaigns[campaignSlug].accumulated_amount || 0) + donation.amount;
+  }
+  return { confirmed: true };
+};
+
 // Read the authoritative stored total (test assertions; not part of the real API).
 const getStoredAmount = (slug) =>
   campaigns[slug] ? campaigns[slug].accumulated_amount : undefined;
@@ -102,6 +137,9 @@ module.exports = {
   deleteDonation,
   updateCampaignAmount,
   incrementCampaignAmount,
+  setPaymentRef,
+  getPaymentRef,
+  confirmCardDonation,
   uploadFile,
   // unused-by-tests stubs (kept to match the real module's surface)
   getDatabase: () => ({}),
