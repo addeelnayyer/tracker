@@ -1423,6 +1423,7 @@ body.drawer-open { overflow: hidden; }
 .drawer.open .drawer-section:nth-child(3) { animation-delay: 0.14s; }
 .drawer.open .drawer-section:nth-child(4) { animation-delay: 0.20s; }
 .drawer.open .drawer-section:nth-child(5) { animation-delay: 0.26s; }
+.drawer.open .drawer-section:nth-child(6) { animation-delay: 0.32s; }
 
 .drawer-section summary {
   list-style: none;
@@ -1520,6 +1521,17 @@ body.drawer-open { overflow: hidden; }
   width: auto;
   padding-left: 22px;
   padding-right: 22px;
+}
+
+.danger-btn {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.danger-btn:hover,
+.danger-btn:focus-visible {
+  background: #8a2f24;
+  box-shadow: 0 6px 18px -6px rgba(162, 59, 46, 0.45);
 }
 
 @media (max-width: 768px) {

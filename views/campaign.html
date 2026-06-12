@@ -358,6 +358,7 @@
         renderDonations();
         renderDonationsPagination();
         renderBankDetails(response.bank_details || []);
+        updateDangerZone();
       } catch (error) {
         showMessage('message', 'Failed to load campaign', 'error');
         console.error(error);
@@ -816,9 +817,34 @@
       return div.innerHTML;
     }
 
+    // ==================== Danger zone ====================
+
+    function updateDangerZone() {
+      const isEmpty = totalDonationsCount === 0 && bankDetailsCount === 0 && galleryDocs.length === 0;
+      document.getElementById('dangerZoneSection').style.display = isEmpty ? '' : 'none';
+    }
+
+    document.getElementById('deleteCampaignBtn').addEventListener('click', async () => {
+      if (!confirm('Permanently delete this campaign? This cannot be undone.')) return;
+
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      try {
+        await apiCall(`/api/campaigns/${slug}`, 'DELETE', { email, password });
+        localStorage.removeItem(`admin_${slug}`);
+        localStorage.removeItem(`admin_email_${slug}`);
+        localStorage.removeItem(`admin_password_${slug}`);
+        window.location.href = '/';
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to delete campaign', 'error');
+      }
+    });
+
     // ==================== Bank transfer details ====================
 
     function renderBankDetails(bankDetails) {
+      bankDetailsCount = bankDetails.length;
       const section = document.getElementById('bankSection');
       const list = document.getElementById('bankList');
 
@@ -921,6 +947,7 @@
       const gallery = document.getElementById('docGallery');
       const hint = document.getElementById('docReorderHint');
       galleryDocs = documents;
+      updateDangerZone();
 
       if (!documents.length) {
         section.style.display = 'none';
