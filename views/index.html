@@ -33,6 +33,7 @@
         <label for="campaignSlug">Campaign Slug</label>
         <input type="text" id="campaignSlug" name="campaignSlug" placeholder="e.g., school-library" required>
         <small class="hint">Your campaign's public address: /campaign/<strong>your-slug</strong></small>
+        <small id="slugStatus" class="hint" style="display:none"></small>
       </div>
 
       <div class="form-row form-row--amount">
@@ -128,6 +129,11 @@
         return;
       }
 
+      if (document.getElementById('campaignSlug').dataset.slugTaken === 'true') {
+        showMessage('message', 'That slug is already taken — please choose another', 'error');
+        return;
+      }
+
       if (targetAmount <= 0) {
         showMessage('message', 'Target amount must be greater than 0', 'error');
         return;
@@ -163,7 +169,47 @@
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '');
         document.getElementById('campaignSlug').value = slug;
+        checkSlugAvailability(slug);
       }
+    });
+
+    let slugCheckTimer;
+    const slugInput = document.getElementById('campaignSlug');
+    const slugStatus = document.getElementById('slugStatus');
+
+    function checkSlugAvailability(slug) {
+      slugStatus.style.display = 'none';
+      slugInput.dataset.slugTaken = '';
+
+      if (slug.length < 3) return;
+
+      clearTimeout(slugCheckTimer);
+      slugCheckTimer = setTimeout(async () => {
+        slugStatus.style.display = 'block';
+        slugStatus.style.color = '';
+        slugStatus.textContent = 'Checking availability…';
+
+        try {
+          const res = await fetch(`/api/campaigns/check-slug/${encodeURIComponent(slug)}`);
+          const data = await res.json();
+          if (data.available) {
+            slugStatus.style.color = 'green';
+            slugStatus.textContent = `✓ "${slug}" is available`;
+            slugInput.dataset.slugTaken = 'false';
+          } else {
+            slugStatus.style.color = 'red';
+            slugStatus.textContent = `✗ "${slug}" is already taken`;
+            slugInput.dataset.slugTaken = 'true';
+          }
+        } catch {
+          slugStatus.style.display = 'none';
+          slugInput.dataset.slugTaken = '';
+        }
+      }, 400);
+    }
+
+    slugInput.addEventListener('input', () => {
+      checkSlugAvailability(slugInput.value.trim().toLowerCase());
     });
   </script>
 </body>

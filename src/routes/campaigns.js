@@ -55,6 +55,18 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Check if a slug is available (lightweight, no auth required)
+router.get('/check-slug/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const existing = await firebase.getCampaign(slug);
+    res.json({ available: !existing });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get campaign details (public read access)
 router.get('/:slug', async (req, res) => {
   try {
