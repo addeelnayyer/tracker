@@ -263,6 +263,18 @@
           </form>
         </div>
       </details>
+
+      <details class="drawer-section" id="dangerZoneSection" style="display: none;">
+        <summary>
+          <span class="drawer-section-no">05</span>
+          <span class="drawer-section-title">Danger Zone</span>
+          <span class="drawer-section-marker" aria-hidden="true"></span>
+        </summary>
+        <div class="drawer-section-body">
+          <p class="drawer-note">Permanently delete this campaign. Only available while it has no donations, bank accounts, or documents.</p>
+          <button type="button" class="block-btn danger-btn" id="deleteCampaignBtn">Delete Campaign</button>
+        </div>
+      </details>
     </div>
 
     <footer class="drawer-foot">
@@ -295,6 +307,7 @@
     let fullDonationsLoaded = false;
     let sortOrder = 'newest';
     let searchQuery = '';
+    let bankDetailsCount = 0;
 
     async function ensureFullDonations() {
       if (fullDonationsLoaded) return;

@@ -221,6 +221,15 @@ const deleteBankDetail = async (campaignId, bankDetailId) => {
   await db.ref(`bank_details/${campaignId}/${bankDetailId}`).remove();
 };
 
+const deleteCampaign = async (slug, campaignId) => {
+  await Promise.all([
+    db.ref(`campaigns/${slug}`).remove(),
+    db.ref(`donations/${campaignId}`).remove(),
+    db.ref(`bank_details/${campaignId}`).remove(),
+    db.ref(`documents/${campaignId}`).remove(),
+  ]);
+};
+
 module.exports = {
   getDatabase,
   getBucket,
@@ -239,6 +248,7 @@ module.exports = {
   getBankDetails,
   addBankDetail,
   deleteBankDetail,
+  deleteCampaign,
   uploadFile,
   deleteFile
 };

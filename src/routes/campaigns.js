@@ -116,4 +116,38 @@ router.get('/:slug', async (req, res) => {
   }
 });
 
+router.delete('/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Credentials required' });
+    }
+
+    const campaign = await firebase.getCampaign(slug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+
+    if (campaign.email !== email || !bcrypt.compareSync(password, campaign.password_hash)) {
+      return res.status(403).json({ error: 'Invalid credentials' });
+    }
+
+    const [donations, bankDetails, documents] = await Promise.all([
+      firebase.getDonations(campaign.id),
+      firebase.getBankDetails(campaign.id),
+      firebase.getDocuments(campaign.id),
+    ]);
+
+    if (donations.length > 0 || bankDetails.length > 0 || documents.length > 0) {
+      return res.status(409).json({ error: 'Campaign is not empty — remove all donations, bank accounts, and documents first' });
+    }
+
+    await firebase.deleteCampaign(slug, campaign.id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
