@@ -143,17 +143,14 @@ const uploadFile = async (file, campaignId, fileName) => {
     
     await fileRef.save(file.buffer, {
       metadata: {
-        contentType: file.mimetype
+        contentType: file.mimetype,
+        cacheControl: 'public, max-age=31536000'
       }
     });
-    
-    // Generate signed URL (valid for 1 year)
-    const [url] = await fileRef.getSignedUrl({
-      version: 'v4',
-      action: 'read',
-      expires: Date.now() + 365 * 24 * 60 * 60 * 1000
-    });
-    
+
+    await fileRef.makePublic();
+    const url = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+
     return { url, filePath };
   } catch (error) {
     console.error('Error uploading file:', error);
@@ -170,6 +167,26 @@ const deleteFile = async (filePath) => {
   }
 };
 
+const getBankDetails = async (campaignId) => {
+  const snapshot = await db.ref(`bank_details/${campaignId}`).once('value');
+  const bankDetails = snapshot.val();
+  if (!bankDetails) return [];
+  return Object.keys(bankDetails).map(key => ({
+    id: key,
+    ...bankDetails[key]
+  }));
+};
+
+const addBankDetail = async (campaignId, bankDetailData) => {
+  const bankDetailRef = db.ref(`bank_details/${campaignId}`).push();
+  await bankDetailRef.set(bankDetailData);
+  return bankDetailRef.key;
+};
+
+const deleteBankDetail = async (campaignId, bankDetailId) => {
+  await db.ref(`bank_details/${campaignId}/${bankDetailId}`).remove();
+};
+
 module.exports = {
   getDatabase,
   getBucket,
@@ -182,6 +199,9 @@ module.exports = {
   getDocuments,
   addDocument,
   deleteDocument,
+  getBankDetails,
+  addBankDetail,
+  deleteBankDetail,
   uploadFile,
   deleteFile
 };

@@ -1,9 +1,13 @@
 rules_version = '2';
 
-// All access is performed server-side via the Firebase Admin SDK, which
-// bypasses these rules. Deny all direct client access by default.
+// Write access is server-side only (Admin SDK bypasses these rules).
+// Campaign documents are publicly readable so permanent public URLs work.
 service firebase.storage {
   match /b/{bucket}/o {
+    match /campaigns/{campaignId}/{fileName} {
+      allow read: if true;
+      allow write: if false;
+    }
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -219,6 +219,7 @@ input[type="password"],
 input[type="number"],
 input[type="datetime-local"],
 input[type="file"],
+select,
 textarea {
   width: 100%;
   padding: 12px 14px;
@@ -229,6 +230,21 @@ textarea {
   border: 1px solid var(--hairline-strong);
   border-radius: 4px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235c6660' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+/* Target amount + currency: amount gets the wider column */
+.form-row--amount {
+  grid-template-columns: 1.6fr 1fr;
 }
 
 input::placeholder,
@@ -242,6 +258,7 @@ input[type="password"]:focus,
 input[type="number"]:focus,
 input[type="datetime-local"]:focus,
 input[type="file"]:focus,
+select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--pine);
@@ -378,6 +395,109 @@ button:active {
   color: var(--pine);
 }
 
+/* ---------- Bank transfer details ---------- */
+
+.bank-section { margin-top: 38px; }
+
+.bank-list {
+  display: grid;
+  gap: 12px;
+}
+
+/* Each account rendered as a remittance slip: paper card,
+   gold filing edge, account number set like a ledger entry. */
+.bank-slip {
+  position: relative;
+  padding: 16px 18px 14px 22px;
+  background: #faf6ec;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  overflow: hidden;
+  animation: section-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bank-slip::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--gold) 0 8px,
+    transparent 8px 13px
+  );
+}
+
+.bank-slip-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bank-slip-bank {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pine);
+}
+
+.bank-slip-holder {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink);
+  margin: 4px 0 8px;
+}
+
+.bank-slip-number {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--hairline-strong);
+}
+
+.bank-slip-number .account-number {
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+.copy-btn {
+  flex-shrink: 0;
+  background: transparent;
+  color: var(--pine-deep);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 3px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.copy-btn:hover {
+  background: var(--pine-wash);
+  border-color: var(--pine);
+  transform: none;
+  box-shadow: none;
+}
+
+.copy-btn.copied {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: transparent;
+}
+
 /* ---------- Donations ledger ---------- */
 
 .donations-list {
@@ -507,160 +627,340 @@ a {
 .mt-20 { margin-top: 20px; }
 .mb-20 { margin-bottom: 20px; }
 
-/* ---------- Document upload (themed; feature currently dormant) ---------- */
+/* ---------- Documents: archive gallery ---------- */
+
+.documents-section { margin-top: 38px; }
+
+.doc-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 14px;
+}
+
+/* A thumbnail rendered as an archival photo plate: paper mat,
+   hairline frame, lifts off the ledger on hover. */
+.doc-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 6px;
+  background: var(--card);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(29, 42, 36, 0.1);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.25s ease, border-color 0.25s ease;
+  animation: section-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.doc-tile:nth-child(odd)  { animation-delay: 0.04s; }
+.doc-tile:nth-child(3n)   { animation-delay: 0.09s; }
+
+.doc-tile:hover,
+.doc-tile:focus-visible {
+  transform: translateY(-3px) rotate(-0.6deg);
+  border-color: var(--pine);
+  box-shadow: 0 14px 28px -12px rgba(20, 61, 47, 0.4);
+  outline: none;
+}
+
+.doc-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+  background: #f1ecdf;
+  display: block;
+  filter: saturate(0.96);
+  transition: filter 0.25s ease;
+}
+
+.doc-tile:hover img { filter: saturate(1.05); }
+
+/* PDF tile: a stamped document card rather than a photo plate */
+.doc-tile--pdf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 9px, rgba(30, 90, 69, 0.05) 9px 10px),
+    #faf6ec;
+  text-decoration: none;
+}
+
+.doc-tile--pdf .doc-stamp {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  color: var(--card);
+  background: var(--pine);
+  border: 1px solid var(--pine-deep);
+  border-radius: 2px;
+  padding: 3px 10px;
+  transform: rotate(-3deg);
+}
+
+.doc-tile--pdf .doc-tile-name {
+  max-width: 92%;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-tile-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--card);
+  background: var(--danger);
+  border: none;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.doc-tile:hover .doc-tile-delete,
+.doc-tile-delete:focus-visible { opacity: 1; }
+.doc-tile-delete:hover { background: #872f24; transform: scale(1.08); }
+
+/* ---------- Organizer upload (drag & drop) ---------- */
 
 .drag-drop-area {
   border: 1.5px dashed var(--hairline-strong);
   border-radius: var(--radius);
-  padding: 32px;
+  padding: 28px 20px;
   text-align: center;
-  background: #faf6ec;
+  background: var(--card);
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
-  margin-bottom: 20px;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  margin-bottom: 14px;
 }
 
 .drag-drop-area:hover,
-.drag-drop-area.dragover {
+.drag-drop-area:focus-visible {
   border-color: var(--pine);
   background: var(--pine-wash);
+  outline: none;
+}
+
+.drag-drop-area.dragover {
+  border-color: var(--pine);
+  border-style: solid;
+  background: var(--pine-wash);
+  transform: scale(1.01);
 }
 
 .drag-drop-area p {
   color: var(--pine-deep);
-  margin: 10px 0;
+  margin: 6px 0 0;
   font-weight: 700;
 }
 
 .drag-drop-area small {
   color: var(--ink-faint);
   display: block;
-  margin-top: 10px;
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+
+.drag-drop-glyph {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 26px;
+  color: var(--gold);
+  line-height: 1;
 }
 
 #fileInput { display: none; }
 
-.documents-section { margin-top: 38px; }
+.upload-queue { margin-bottom: 14px; }
 
-.splide {
-  --splide-theme-gap: 1rem;
-  --splide-height: 500px;
-}
-
-.splide__slide {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #faf6ec;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.splide__arrow {
-  background: rgba(30, 90, 69, 0.85);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  transition: background 0.2s ease;
-}
-
-.splide__arrow:hover { background: var(--pine-deep); }
-.splide__arrow svg { fill: var(--card); }
-
-.document-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  position: relative;
-}
-
-.document-image {
-  max-width: 100%;
-  max-height: 400px;
-  object-fit: contain;
-  border-radius: 4px;
-}
-
-.document-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #f1ecdf;
-  color: var(--ink-faint);
-  font-size: 48px;
-  text-align: center;
-}
-
-.document-name {
-  margin-top: 15px;
-  font-size: 14px;
-  color: var(--ink-soft);
-  word-break: break-word;
-  text-align: center;
-}
-
-.document-meta {
-  font-size: 12px;
-  color: var(--ink-faint);
-  margin-top: 5px;
-}
-
-.document-actions {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  gap: 5px;
-}
-
-.document-delete-btn {
-  background: var(--danger);
-  color: var(--card);
-  padding: 8px 12px;
-  font-size: 12px;
-  border-radius: 4px;
-  display: none;
-}
-
-.document-container:hover .document-delete-btn { display: block; }
-
-.no-documents {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--ink-faint);
-}
-
-.uploaded-files-list { margin-top: 20px; }
-
-.uploaded-file-item {
+.upload-queue-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
-  background: #faf6ec;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.uploaded-file-name { color: var(--ink); font-weight: 700; }
-.uploaded-file-size { color: var(--ink-faint); font-size: 12px; }
-
-.document-viewer-wrapper {
+  gap: 12px;
+  padding: 9px 12px;
   background: var(--card);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-  overflow: hidden;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  animation: section-rise 0.3s ease both;
 }
+
+.upload-queue-item .name {
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-queue-item .size { color: var(--ink-faint); font-size: 12px; white-space: nowrap; }
+
+.upload-queue-item.uploading .size { color: var(--gold); }
+
+/* ---------- Lightbox: the plate viewer ---------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 40%, rgba(30, 90, 69, 0.22), transparent 70%),
+    rgba(13, 20, 17, 0.96);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.lightbox.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.lightbox-stage {
+  position: relative;
+  max-width: min(1100px, calc(100vw - 32px));
+  max-height: calc(100dvh - 150px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.lightbox-stage img {
+  max-width: 100%;
+  max-height: calc(100dvh - 150px);
+  object-fit: contain;
+  background: #0d1411;
+  border: 6px solid var(--card);
+  border-radius: 2px;
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7);
+  -webkit-user-drag: none;
+  user-select: none;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+}
+
+/* fill-mode deliberately left at none — a persistent fill would pin
+   opacity/transform and break the slide-left/right navigation classes */
+.lightbox.open .lightbox-stage img { animation: plate-in 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes plate-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.lightbox-stage img.slide-left  { opacity: 0; transform: translateX(-28px); transition: none; }
+.lightbox-stage img.slide-right { opacity: 0; transform: translateX(28px);  transition: none; }
+
+/* Top chrome: counter centered, close at right */
+.lightbox-counter {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.lightbox-counter span { color: rgba(243, 238, 227, 0.55); }
+
+.lightbox-caption {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(620px, calc(100vw - 120px));
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: rgba(243, 238, 227, 0.75);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--paper);
+  background: transparent;
+  border: 1px solid rgba(243, 238, 227, 0.3);
+  border-radius: 50%;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.lightbox-close:hover {
+  background: rgba(243, 238, 227, 0.12);
+  transform: rotate(90deg);
+  box-shadow: none;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--paper);
+  background: rgba(30, 90, 69, 0.55);
+  border: 1px solid rgba(243, 238, 227, 0.2);
+  border-radius: 50%;
+  transition: background 0.2s ease, transform 0.15s ease;
+  z-index: 2;
+}
+
+.lightbox-nav:hover {
+  background: var(--pine);
+  transform: translateY(-50%) scale(1.06);
+  box-shadow: none;
+}
+
+.lightbox-nav.prev { left: 18px; }
+.lightbox-nav.next { right: 18px; }
+
+body.lightbox-open { overflow: hidden; }
 
 /* ---------- Responsive ---------- */
 
@@ -675,9 +975,22 @@ a {
 
   .form-row { grid-template-columns: 1fr; gap: 0; }
 
-  .drag-drop-area { padding: 20px; }
+  .drag-drop-area { padding: 20px 14px; }
 
-  .splide { --splide-height: 300px; }
+  .doc-gallery {
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: 10px;
+  }
 
-  .document-image { max-height: 250px; }
+  /* Touch devices: keep delete reachable without hover */
+  .doc-tile-delete { opacity: 1; width: 26px; height: 26px; }
+
+  .lightbox-nav { width: 42px; height: 42px; }
+  .lightbox-nav.prev { left: 8px; }
+  .lightbox-nav.next { right: 8px; }
+
+  .lightbox-stage { max-height: calc(100dvh - 120px); }
+  .lightbox-stage img { max-height: calc(100dvh - 120px); border-width: 4px; }
+
+  .lightbox-caption { max-width: calc(100vw - 32px); bottom: 14px; }
 }

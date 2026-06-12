@@ -13,26 +13,20 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024 // 50MB limit per file
   },
   fileFilter: (req, file, cb) => {
-    // Allow common document and image formats
+    // Organizer uploads are restricted to images and PDFs
     const allowedMimes = [
       'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'image/jpeg',
       'image/png',
       'image/gif',
       'image/webp',
       'image/svg+xml'
     ];
-    
+
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only documents and images are allowed.'));
+      cb(new Error('Invalid file type. Only images and PDFs are allowed.'));
     }
   }
 });

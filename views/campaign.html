@@ -39,12 +39,24 @@
       </div>
     </div>
 
+    <!-- Bank Transfer Details -->
+    <div class="bank-section" id="bankSection" style="display: none;">
+      <div class="section-label">Bank Transfer Details</div>
+      <div class="bank-list" id="bankList"></div>
+    </div>
+
     <!-- Donations List -->
     <div class="donations-list">
       <div class="section-label">Donation Ledger</div>
       <div id="donationsList">
         <p class="empty-note">Loading donations…</p>
       </div>
+    </div>
+
+    <!-- Documents Gallery -->
+    <div class="documents-section" id="documentsSection" style="display: none;">
+      <div class="section-label">Campaign Documents</div>
+      <div class="doc-gallery" id="docGallery"></div>
     </div>
 
     <!-- Admin Section -->
@@ -60,7 +72,7 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label for="donationAmount">Amount (USD)</label>
+            <label for="donationAmount">Amount (<span id="donationCurrencyLabel">USD</span>)</label>
             <input type="number" id="donationAmount" placeholder="100" step="0.01" min="0" required>
           </div>
 
@@ -72,6 +84,40 @@
 
         <button type="submit" class="block-btn">Record Donation</button>
       </form>
+
+      <div class="section-label" style="margin-top: 28px;">Bank Accounts</div>
+      <p class="lede" style="font-size: 14px; margin-bottom: 18px;">Add the accounts donors can transfer to. They appear on the public page.</p>
+      <form id="bankForm">
+        <div class="form-group">
+          <label for="bankName">Bank Name</label>
+          <input type="text" id="bankName" placeholder="e.g., Meezan Bank" maxlength="140" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="accountTitle">Account Title</label>
+            <input type="text" id="accountTitle" placeholder="e.g., John Doe" maxlength="140" required>
+          </div>
+
+          <div class="form-group">
+            <label for="accountNumber">Account Number / IBAN</label>
+            <input type="text" id="accountNumber" placeholder="e.g., PK36 SCBL 0000 0011 2345 6702" maxlength="140" required>
+          </div>
+        </div>
+
+        <button type="submit" class="block-btn">Add Bank Account</button>
+      </form>
+
+      <div class="section-label" style="margin-top: 28px;">Upload Documents</div>
+      <div class="drag-drop-area" id="dropArea" role="button" tabindex="0"
+           aria-label="Upload documents: drag and drop or press Enter to browse">
+        <div class="drag-drop-glyph">&#10515;</div>
+        <p>Drag &amp; drop images or PDFs</p>
+        <small>or click to browse — up to 10 files, 50&nbsp;MB each</small>
+      </div>
+      <input type="file" id="fileInput" multiple
+             accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf">
+      <div class="upload-queue" id="uploadQueue"></div>
 
       <button class="secondary-btn" onclick="logoutAdmin()">Log Out</button>
     </div>
@@ -103,10 +149,23 @@
     </footer>
   </div>
 
+  <!-- Lightbox plate viewer -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" aria-hidden="true">
+    <div class="lightbox-counter" id="lightboxCounter"></div>
+    <button class="lightbox-close" id="lightboxClose" aria-label="Close viewer">&#10005;</button>
+    <button class="lightbox-nav prev" id="lightboxPrev" aria-label="Previous image">&#8592;</button>
+    <div class="lightbox-stage" id="lightboxStage">
+      <img id="lightboxImage" src="" alt="">
+    </div>
+    <button class="lightbox-nav next" id="lightboxNext" aria-label="Next image">&#8594;</button>
+    <div class="lightbox-caption" id="lightboxCaption"></div>
+  </div>
+
   <script src="/js/app.js"></script>
   <script>
     const slug = window.location.pathname.split('/')[2];
     let isAdmin = false;
+    let campaignCurrency = 'USD';
 
     // Set default timestamp to now
     const now = new Date();
@@ -122,10 +181,13 @@
       try {
         const response = await apiCall(`/api/campaigns/${slug}`);
 
+        campaignCurrency = response.currency || 'USD';
+        document.getElementById('donationCurrencyLabel').textContent = campaignCurrency;
+
         document.getElementById('campaignTitle').textContent = response.name;
         document.title = `${response.name} — Nasr`;
-        document.getElementById('accumulatedAmount').textContent = formatCurrency(response.accumulated_amount);
-        document.getElementById('targetAmount').textContent = formatCurrency(response.target_amount);
+        document.getElementById('accumulatedAmount').textContent = formatCurrency(response.accumulated_amount, campaignCurrency);
+        document.getElementById('targetAmount').textContent = formatCurrency(response.target_amount, campaignCurrency);
 
         const progress = response.progressPercentage;
         document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
@@ -140,13 +202,15 @@
                 <h3>${escapeHtml(donation.donor_name)}</h3>
                 <p>${formatDate(donation.timestamp)}</p>
               </div>
-              <div class="donation-amount">${formatCurrency(donation.amount)}</div>
+              <div class="donation-amount">${formatCurrency(donation.amount, campaignCurrency)}</div>
               ${isAdmin ? `<button class="delete-btn" onclick="deleteDonation('${donation.id}')">Delete</button>` : ''}
             </div>
           `).join('');
         } else {
           donationsList.innerHTML = '<p class="empty-note">No donations yet. Be the first to donate!</p>';
         }
+
+        renderBankDetails(response.bank_details || []);
       } catch (error) {
         showMessage('message', 'Failed to load campaign', 'error');
         console.error(error);
@@ -175,6 +239,8 @@
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('adminSection').style.display = 'block';
         showMessage('message', 'Login successful!', 'success');
+        loadCampaign();
+        loadDocuments();
       } catch (error) {
         showMessage('message', 'Invalid credentials', 'error');
       }
@@ -216,6 +282,7 @@
       document.getElementById('adminSection').style.display = 'none';
       showMessage('message', 'Logged out successfully', 'success');
       loadCampaign();
+      loadDocuments();
     }
 
     async function deleteDonation(donationId) {
@@ -243,6 +310,345 @@
       return div.innerHTML;
     }
 
+    // ==================== Bank transfer details ====================
+
+    function renderBankDetails(bankDetails) {
+      const section = document.getElementById('bankSection');
+      const list = document.getElementById('bankList');
+
+      if (!bankDetails.length) {
+        section.style.display = 'none';
+        list.innerHTML = '';
+        return;
+      }
+
+      section.style.display = 'block';
+      list.innerHTML = bankDetails.map(bank => `
+        <div class="bank-slip">
+          <div class="bank-slip-head">
+            <span class="bank-slip-bank">${escapeHtml(bank.bank_name)}</span>
+            ${isAdmin ? `<button class="delete-btn bank-slip-delete" data-bank-id="${bank.id}">Delete</button>` : ''}
+          </div>
+          <div class="bank-slip-holder">${escapeHtml(bank.account_title)}</div>
+          <div class="bank-slip-number">
+            <span class="account-number">${escapeHtml(bank.account_number)}</span>
+            <button class="copy-btn" data-copy="${escapeHtml(bank.account_number)}" aria-label="Copy account number">Copy</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('bankList').addEventListener('click', async (e) => {
+      const copyBtn = e.target.closest('.copy-btn');
+      if (copyBtn) {
+        try {
+          await navigator.clipboard.writeText(copyBtn.dataset.copy);
+          copyBtn.textContent = 'Copied ✓';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.textContent = 'Copy';
+            copyBtn.classList.remove('copied');
+          }, 1600);
+        } catch (err) {
+          showMessage('message', 'Could not copy to clipboard', 'error');
+        }
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.bank-slip-delete');
+      if (deleteBtn) deleteBankDetail(deleteBtn.dataset.bankId);
+    });
+
+    document.getElementById('bankForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const bankName = document.getElementById('bankName').value.trim();
+      const accountTitle = document.getElementById('accountTitle').value.trim();
+      const accountNumber = document.getElementById('accountNumber').value.trim();
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      try {
+        await apiCall(`/api/bank-details/${slug}`, 'POST', {
+          bankName,
+          accountTitle,
+          accountNumber,
+          email,
+          password
+        });
+
+        showMessage('message', 'Bank account added', 'success');
+        document.getElementById('bankForm').reset();
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to add bank account', 'error');
+      }
+    });
+
+    async function deleteBankDetail(bankDetailId) {
+      if (!confirm('Remove this bank account from the campaign?')) return;
+
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      try {
+        await apiCall(`/api/bank-details/${slug}/${bankDetailId}`, 'DELETE', { email, password });
+        showMessage('message', 'Bank account removed', 'success');
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', 'Failed to remove bank account', 'error');
+      }
+    }
+
+    // ==================== Documents gallery ====================
+
+    let galleryImages = []; // image documents only, in display order
+
+    async function loadDocuments() {
+      try {
+        const response = await apiCall(`/api/documents/${slug}`);
+        renderGallery(response.documents || []);
+      } catch (error) {
+        console.error('Failed to load documents:', error);
+      }
+    }
+
+    function renderGallery(documents) {
+      const section = document.getElementById('documentsSection');
+      const gallery = document.getElementById('docGallery');
+
+      if (!documents.length) {
+        section.style.display = 'none';
+        gallery.innerHTML = '';
+        galleryImages = [];
+        return;
+      }
+
+      section.style.display = 'block';
+      galleryImages = documents.filter(d => (d.mime_type || '').startsWith('image/'));
+
+      gallery.innerHTML = documents.map(doc => {
+        const deleteBtn = isAdmin
+          ? `<button class="doc-tile-delete" data-doc-id="${doc.id}" aria-label="Delete ${escapeHtml(doc.name)}">&#10005;</button>`
+          : '';
+
+        if ((doc.mime_type || '').startsWith('image/')) {
+          const index = galleryImages.findIndex(img => img.id === doc.id);
+          return `
+            <figure class="doc-tile" data-image-index="${index}" tabindex="0" role="button"
+                    aria-label="View ${escapeHtml(doc.name)}">
+              <img src="${escapeHtml(doc.url)}" alt="${escapeHtml(doc.name)}" loading="lazy">
+              ${deleteBtn}
+            </figure>`;
+        }
+
+        return `
+          <a class="doc-tile doc-tile--pdf" href="${escapeHtml(doc.url)}" target="_blank" rel="noopener">
+            <span class="doc-stamp">PDF</span>
+            <span class="doc-tile-name">${escapeHtml(doc.name)}</span>
+            ${deleteBtn}
+          </a>`;
+      }).join('');
+    }
+
+    // One delegated handler covers opening the lightbox and deleting
+    document.getElementById('docGallery').addEventListener('click', (e) => {
+      const deleteBtn = e.target.closest('.doc-tile-delete');
+      if (deleteBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteDocument(deleteBtn.dataset.docId);
+        return;
+      }
+      const tile = e.target.closest('.doc-tile[data-image-index]');
+      if (tile) openLightbox(parseInt(tile.dataset.imageIndex, 10));
+    });
+
+    document.getElementById('docGallery').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const tile = e.target.closest('.doc-tile[data-image-index]');
+      if (tile) {
+        e.preventDefault();
+        openLightbox(parseInt(tile.dataset.imageIndex, 10));
+      }
+    });
+
+    async function deleteDocument(documentId) {
+      if (!confirm('Are you sure you want to delete this document?')) return;
+
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      try {
+        await apiCall(`/api/documents/${slug}/${documentId}`, 'DELETE', { email, password });
+        showMessage('message', 'Document deleted', 'success');
+        loadDocuments();
+      } catch (error) {
+        showMessage('message', 'Failed to delete document', 'error');
+      }
+    }
+
+    // ==================== Organizer upload ====================
+
+    const dropArea = document.getElementById('dropArea');
+    const fileInput = document.getElementById('fileInput');
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'application/pdf'];
+
+    dropArea.addEventListener('click', () => fileInput.click());
+    dropArea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(event =>
+      dropArea.addEventListener(event, (e) => {
+        e.preventDefault();
+        dropArea.classList.add('dragover');
+      })
+    );
+
+    ['dragleave', 'drop'].forEach(event =>
+      dropArea.addEventListener(event, (e) => {
+        e.preventDefault();
+        dropArea.classList.remove('dragover');
+      })
+    );
+
+    dropArea.addEventListener('drop', (e) => uploadFiles(Array.from(e.dataTransfer.files)));
+    fileInput.addEventListener('change', () => {
+      uploadFiles(Array.from(fileInput.files));
+      fileInput.value = '';
+    });
+
+    async function uploadFiles(files) {
+      if (!files.length) return;
+
+      const accepted = files.filter(f => ALLOWED_TYPES.includes(f.type));
+      const rejected = files.length - accepted.length;
+      if (rejected > 0) {
+        showMessage('message', `${rejected} file(s) skipped — only images and PDFs are allowed`, 'error');
+      }
+      if (!accepted.length) return;
+
+      const queue = document.getElementById('uploadQueue');
+      queue.innerHTML = accepted.map(f => `
+        <div class="upload-queue-item uploading">
+          <span class="name">${escapeHtml(f.name)}</span>
+          <span class="size">${formatFileSize(f.size)} · uploading…</span>
+        </div>
+      `).join('');
+
+      const formData = new FormData();
+      accepted.forEach(f => formData.append('documents', f));
+      formData.append('email', localStorage.getItem(`admin_email_${slug}`));
+      formData.append('password', localStorage.getItem(`admin_password_${slug}`));
+
+      try {
+        await apiCall(`/api/documents/${slug}/upload`, 'POST', formData, true);
+        queue.innerHTML = '';
+        showMessage('message', `${accepted.length} document(s) uploaded`, 'success');
+        loadDocuments();
+      } catch (error) {
+        queue.innerHTML = '';
+        showMessage('message', error.message || 'Upload failed', 'error');
+      }
+    }
+
+    // ==================== Lightbox plate viewer ====================
+
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImage = document.getElementById('lightboxImage');
+    const lightboxStage = document.getElementById('lightboxStage');
+    let lightboxIndex = 0;
+
+    function openLightbox(index) {
+      lightboxIndex = index;
+      showSlide();
+      lightbox.classList.add('open');
+      lightbox.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('lightbox-open');
+      document.getElementById('lightboxClose').focus();
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+      lightbox.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('lightbox-open');
+    }
+
+    function showSlide(direction) {
+      const doc = galleryImages[lightboxIndex];
+      if (!doc) return;
+
+      const swap = () => {
+        lightboxImage.src = doc.url;
+        lightboxImage.alt = doc.name;
+        document.getElementById('lightboxCounter').innerHTML =
+          `${lightboxIndex + 1}<span> / ${galleryImages.length}</span>`;
+        document.getElementById('lightboxCaption').textContent = doc.name;
+      };
+
+      if (direction) {
+        // Brief slide-out/slide-in so navigation reads as a turn of the plate
+        lightboxImage.classList.add(direction === 'next' ? 'slide-left' : 'slide-right');
+        setTimeout(() => {
+          swap();
+          lightboxImage.classList.remove('slide-left', 'slide-right');
+        }, 80);
+      } else {
+        swap();
+      }
+
+      // Preload neighbours so browsing feels instant
+      [lightboxIndex + 1, lightboxIndex - 1].forEach(i => {
+        const neighbour = galleryImages[(i + galleryImages.length) % galleryImages.length];
+        if (neighbour) new Image().src = neighbour.url;
+      });
+    }
+
+    function nextSlide() {
+      lightboxIndex = (lightboxIndex + 1) % galleryImages.length;
+      showSlide('next');
+    }
+
+    function prevSlide() {
+      lightboxIndex = (lightboxIndex - 1 + galleryImages.length) % galleryImages.length;
+      showSlide('prev');
+    }
+
+    document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+    document.getElementById('lightboxNext').addEventListener('click', nextSlide);
+    document.getElementById('lightboxPrev').addEventListener('click', prevSlide);
+
+    // Click on the dark scrim (not the image or controls) closes the viewer
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox || e.target === lightboxStage) closeLightbox();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!lightbox.classList.contains('open')) return;
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowRight') nextSlide();
+      else if (e.key === 'ArrowLeft') prevSlide();
+    });
+
+    // Swipe gestures on touch devices
+    let touchStartX = null;
+    lightboxStage.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+
+    lightboxStage.addEventListener('touchend', (e) => {
+      if (touchStartX === null) return;
+      const deltaX = e.changedTouches[0].clientX - touchStartX;
+      touchStartX = null;
+      if (Math.abs(deltaX) < 40) return; // ignore taps and tiny drags
+      if (deltaX < 0) nextSlide();
+      else prevSlide();
+    }, { passive: true });
+
     // Check if user is already logged in
     if (localStorage.getItem(`admin_${slug}`) === 'true') {
       isAdmin = true;
@@ -252,6 +658,7 @@
 
     // Initial load
     loadCampaign();
+    loadDocuments();
 
     // Refresh campaign data every 30 seconds
     setInterval(loadCampaign, 30000);
