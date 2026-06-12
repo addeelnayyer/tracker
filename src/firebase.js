@@ -20,10 +20,7 @@ const hasServiceAccountKey = Boolean(process.env.SA_PRIVATE_KEY);
 
 try {
   firebase = admin.initializeApp({
-    // Fall back to Application Default Credentials when the SA key isn't
-    // present (e.g. the deploy-time "analyzing source code" step, where
-    // Secret Manager secrets are not yet injected). Without this, module
-    // load throws and the functions deploy is silently skipped.
+    // ADC fallback for deploy-time source analysis (SA secrets not yet injected)
     credential: hasServiceAccountKey
       ? admin.credential.cert(serviceAccount)
       : admin.credential.applicationDefault(),
@@ -32,15 +29,14 @@ try {
   });
   console.log('Firebase initialized successfully');
 } catch (error) {
-  // Do NOT process.exit(1) here — it kills the deploy-time source analysis
-  // subprocess, which makes Firebase skip the functions deploy entirely.
+  // No process.exit(1) — it kills deploy-time source analysis and silently aborts the deploy
   console.error('Firebase initialization error:', error);
 }
 
 const db = admin.database();
 const bucket = admin.storage().bucket();
 
-// Utility functions for Firebase operations
+
 const getDatabase = () => db;
 const getBucket = () => bucket;
 
@@ -68,8 +64,6 @@ const getDonations = async (campaignId) => {
     const snapshot = await db.ref(`donations/${campaignId}`).once('value');
     const donations = snapshot.val();
     if (!donations) return [];
-    
-    // Convert object to array
     return Object.keys(donations).map(key => ({
       id: key,
       ...donations[key]
