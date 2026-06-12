@@ -10,7 +10,7 @@ const documentRoutes = require('./routes/documents');
 const bankDetailRoutes = require('./routes/bankDetails');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.DEV_PORT || 3000;
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));

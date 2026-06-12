@@ -36,12 +36,12 @@ set_secret() {
 }
 
 set_secret SESSION_SECRET    "$(get_env SESSION_SECRET)"
-set_secret SA_PRIVATE_KEY_ID "$(get_env FIREBASE_PRIVATE_KEY_ID)"
-set_secret SA_CLIENT_EMAIL   "$(get_env FIREBASE_CLIENT_EMAIL)"
-set_secret SA_CLIENT_ID      "$(get_env FIREBASE_CLIENT_ID)"
+set_secret SA_PRIVATE_KEY_ID "$(get_env SA_PRIVATE_KEY_ID)"
+set_secret SA_CLIENT_EMAIL   "$(get_env SA_CLIENT_EMAIL)"
+set_secret SA_CLIENT_ID      "$(get_env SA_CLIENT_ID)"
 
 # Private key: stored with literal \n in .env — convert to real newlines for Secret Manager
-RAW_KEY=$(get_env FIREBASE_PRIVATE_KEY)
+RAW_KEY=$(get_env SA_PRIVATE_KEY)
 REAL_KEY=$(printf '%b' "$RAW_KEY")
 echo "Setting SA_PRIVATE_KEY..."
 printf '%s' "$REAL_KEY" | $FIREBASE functions:secrets:set SA_PRIVATE_KEY
