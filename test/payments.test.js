@@ -83,6 +83,10 @@ describe('POST /api/payments/:slug/checkout — pending creation', () => {
     expect(args.successUrl).toContain('https://nasr.example');
     expect(args.cancelUrl).toContain('https://nasr.example');
     expect(args.successUrl).toContain(`/campaign/${SLUG}`);
+    // Safepay appends ?tracker=... to successUrl — it must arrive clean (no pre-added
+    // ?payment=success) so the result isn't ?payment=success?tracker=... (two '?').
+    expect(args.successUrl).not.toContain('?');
+    expect(args.cancelUrl).toContain('payment=cancelled');
   });
 
   test('name is optional (stored null when omitted)', async () => {

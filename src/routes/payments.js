@@ -59,7 +59,10 @@ router.post('/:campaignSlug/checkout', async (req, res) => {
     // from the request host (the webhook, not this redirect, is the source of
     // truth — issue #7 renders the pending-aware landing states).
     const base = (process.env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
-    const successUrl = `${base}/campaign/${campaignSlug}?payment=success`;
+    // Safepay appends ?tracker=... to the success URL itself — don't pre-add
+    // ?payment=success or the result is ?payment=success?tracker=... (two '?').
+    // The client detects success from the presence of ?tracker= in the URL.
+    const successUrl = `${base}/campaign/${campaignSlug}`;
     const cancelUrl = `${base}/campaign/${campaignSlug}?payment=cancelled`;
 
     const donorDisplayName = donorName ? String(donorName).trim() : '';

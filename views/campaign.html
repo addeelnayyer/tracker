@@ -1385,7 +1385,12 @@
     // treated as confirmation — only the signed webhook confirms the donation —
     // so a success here means "received, confirming", not "confirmed".
     function renderPaymentLanding() {
-      const param = getQueryParam('payment');
+      // Safepay appends ?tracker=... to the success redirect URL (not a ?payment=
+      // param). Treat the presence of a tracker token as a successful payment
+      // return; ?payment=cancelled still comes through on the cancel URL.
+      const paymentParam = getQueryParam('payment');
+      const trackerParam = getQueryParam('tracker');
+      const param = paymentParam || (trackerParam ? 'success' : null);
       const state = paymentLandingState(param);
       const el = document.getElementById('paymentLanding');
       if (!state) { el.hidden = true; return; }
@@ -1406,7 +1411,8 @@
       if (window.history && window.history.replaceState) {
         const url = new URL(window.location.href);
         url.searchParams.delete('payment');
-        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+        url.searchParams.delete('tracker');
+        window.history.replaceState({}, document.title, url.pathname + (url.search || '') + url.hash);
       }
 
       // On a successful return the confirming webhook may land within seconds —
