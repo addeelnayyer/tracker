@@ -266,7 +266,8 @@
         });
 
         showMessage('message', 'Donation added successfully!', 'success');
-        document.getElementById('donationForm').reset();
+        document.getElementById('donorName').value = '';
+        document.getElementById('donationAmount').value = '';
         loadCampaign();
       } catch (error) {
         showMessage('message', error.message || 'Failed to add donation', 'error');
