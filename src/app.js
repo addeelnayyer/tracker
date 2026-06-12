@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
 const firebase = require('./firebase');
+const { siteMeta, campaignMeta } = require('./meta');
 const campaignRoutes = require('./routes/campaigns');
 const donationRoutes = require('./routes/donations');
 const authRoutes = require('./routes/auth');
@@ -11,6 +12,10 @@ const bankDetailRoutes = require('./routes/bankDetails');
 
 const app = express();
 const PORT = process.env.DEV_PORT || 3000;
+
+// Behind Cloud Functions / hosting, TLS is terminated upstream; trust the proxy
+// headers so req.protocol/host reflect the public URL used in og:url & og:image.
+app.set('trust proxy', true);
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -40,17 +45,32 @@ app.use('/api/bank-details', bankDetailRoutes);
 
 // Home page
 app.get('/', (req, res) => {
-  res.render('index');
+  res.render('index', { og: siteMeta(req) });
 });
 
-// Campaign view page
-app.get('/campaign/:slug', (req, res) => {
-  res.render('campaign');
+// Campaign view page — fetch the campaign so crawlers get a real preview
+// (name, progress, thumbnail). Rendering must never fail on a data hiccup:
+// the client re-fetches everything and handles a missing campaign itself.
+app.get('/campaign/:slug', async (req, res) => {
+  let og;
+  try {
+    const campaign = await firebase.getCampaign(req.params.slug);
+    if (campaign) {
+      const documents = await firebase.getDocuments(campaign.id);
+      og = campaignMeta(req, campaign, documents);
+    } else {
+      og = siteMeta(req, { title: `Campaign not found — Nasr`, noindex: true });
+    }
+  } catch (error) {
+    console.error('Failed to build campaign preview metadata:', error);
+    og = siteMeta(req);
+  }
+  res.render('campaign', { og });
 });
 
-// Admin page
+// Admin page — private, keep it out of search engines and link previews.
 app.get('/campaign/:slug/admin', (req, res) => {
-  res.render('admin');
+  res.render('admin', { og: siteMeta(req, { title: 'Campaign Admin — Nasr', noindex: true }) });
 });
 
 // Error handling
