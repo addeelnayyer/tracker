@@ -1,14 +1,18 @@
 // Utility function to make API calls
-async function apiCall(endpoint, method = 'GET', data = null) {
+async function apiCall(endpoint, method = 'GET', data = null, isFormData = false) {
   const options = {
     method,
-    headers: {
+    headers: isFormData ? {} : {
       'Content-Type': 'application/json'
     }
   };
 
   if (data) {
-    options.body = JSON.stringify(data);
+    if (isFormData) {
+      options.body = data;
+    } else {
+      options.body = JSON.stringify(data);
+    }
   }
 
   try {
@@ -55,4 +59,23 @@ function formatCurrency(amount) {
 function formatDate(dateString) {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// Format file size
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Get file type icon
+function getFileTypeIcon(mimeType) {
+  if (mimeType.includes('image')) return '🖼️';
+  if (mimeType.includes('pdf')) return '📄';
+  if (mimeType.includes('word')) return '📝';
+  if (mimeType.includes('sheet')) return '📊';
+  if (mimeType.includes('presentation')) return '🎥';
+  return '📎';
 }

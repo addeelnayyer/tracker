@@ -19,7 +19,8 @@ let firebase;
 try {
   firebase = admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: process.env.FIREBASE_DATABASE_URL
+    databaseURL: process.env.FIREBASE_DATABASE_URL,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET
   });
   console.log('Firebase initialized successfully');
 } catch (error) {
@@ -28,9 +29,11 @@ try {
 }
 
 const db = admin.database();
+const bucket = admin.storage().bucket();
 
 // Utility functions for Firebase operations
 const getDatabase = () => db;
+const getBucket = () => bucket;
 
 const getCampaign = async (slug) => {
   try {
@@ -97,12 +100,88 @@ const deleteDonation = async (campaignId, donationId) => {
   }
 };
 
+const getDocuments = async (campaignId) => {
+  try {
+    const snapshot = await db.ref(`documents/${campaignId}`).once('value');
+    const documents = snapshot.val();
+    if (!documents) return [];
+    
+    return Object.keys(documents).map(key => ({
+      id: key,
+      ...documents[key]
+    }));
+  } catch (error) {
+    console.error('Error getting documents:', error);
+    throw error;
+  }
+};
+
+const addDocument = async (campaignId, documentData) => {
+  try {
+    const docRef = db.ref(`documents/${campaignId}`).push();
+    await docRef.set(documentData);
+    return docRef.key;
+  } catch (error) {
+    console.error('Error adding document:', error);
+    throw error;
+  }
+};
+
+const deleteDocument = async (campaignId, documentId) => {
+  try {
+    await db.ref(`documents/${campaignId}/${documentId}`).remove();
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    throw error;
+  }
+};
+
+const uploadFile = async (file, campaignId, fileName) => {
+  try {
+    const filePath = `campaigns/${campaignId}/${fileName}`;
+    const fileRef = bucket.file(filePath);
+    
+    await fileRef.save(file.buffer, {
+      metadata: {
+        contentType: file.mimetype
+      }
+    });
+    
+    // Generate signed URL (valid for 1 year)
+    const [url] = await fileRef.getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + 365 * 24 * 60 * 60 * 1000
+    });
+    
+    return { url, filePath };
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
+  }
+};
+
+const deleteFile = async (filePath) => {
+  try {
+    await bucket.file(filePath).delete();
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getDatabase,
+  getBucket,
   getCampaign,
   setCampaign,
   getDonations,
   addDonation,
   updateCampaignAmount,
-  deleteDonation
+  deleteDonation,
+  getDocuments,
+  addDocument,
+  deleteDocument,
+  uploadFile,
+  deleteFile
 };

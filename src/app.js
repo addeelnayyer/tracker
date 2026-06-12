@@ -6,13 +6,15 @@ const firebase = require('./firebase');
 const campaignRoutes = require('./routes/campaigns');
 const donationRoutes = require('./routes/donations');
 const authRoutes = require('./routes/auth');
+const documentRoutes = require('./routes/documents');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Session configuration
@@ -32,6 +34,7 @@ app.set('views', path.join(__dirname, '../views'));
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/documents', documentRoutes);
 
 // Home page
 app.get('/', (req, res) => {
@@ -51,7 +54,7 @@ app.get('/campaign/:slug/admin', (req, res) => {
 // Error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  res.status(500).json({ error: err.message || 'Something went wrong!' });
 });
 
 // Start server
