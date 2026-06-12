@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
-require('dotenv').config();
+require('dotenv').config({ path: '.env.local' }); // secrets for local dev
+require('dotenv').config();                        // non-sensitive config
 
 const serviceAccount = {
   type: "service_account",
