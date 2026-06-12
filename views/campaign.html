@@ -18,6 +18,10 @@
 
     <div id="message"></div>
 
+    <!-- Donor return banner (Safepay redirect) — pending-aware success /
+         not-charged cancel state. Populated client-side from ?payment=. -->
+    <div class="payment-landing" id="paymentLanding" hidden></div>
+
     <!-- Campaign Header -->
     <div class="campaign-header" id="campaignHeader">
       <h1 id="campaignTitle">Loading…</h1>
@@ -60,17 +64,19 @@
       </form>
     </div>
 
+    <!-- Bank transfer is the secondary donation path, demoted beneath the
+         primary "Donate by Card" CTA (#7). -->
+    <div class="bank-section bank-section--secondary" id="bankSection" style="display: none;">
+      <div class="section-label section-label--soft">Or transfer directly</div>
+      <p class="bank-section-note">Prefer a bank transfer? Send your donation to any of the accounts below and share your receipt with the organizer.</p>
+      <div class="bank-list" id="bankList"></div>
+    </div>
+
     <!-- Documents Gallery -->
     <div class="documents-section" id="documentsSection" style="display: none;">
       <div class="section-label">Campaign Documents</div>
       <p class="doc-reorder-hint" id="docReorderHint" style="display: none;">Drag tiles to set the order donors see.</p>
       <div class="doc-gallery" id="docGallery"></div>
-    </div>
-
-    <!-- Bank Transfer Details -->
-    <div class="bank-section" id="bankSection" style="display: none;">
-      <div class="section-label">Bank Transfer Details</div>
-      <div class="bank-list" id="bankList"></div>
     </div>
 
     <!-- Donations List -->
@@ -1374,12 +1380,52 @@
       }
     };
 
+    // ==================== Donor return banner (Safepay redirect) ====================
+
+    // Render the pending-aware success / not-charged cancel banner from the
+    // ?payment= param Safepay sends the donor back with. The redirect is NEVER
+    // treated as confirmation — only the signed webhook confirms the donation —
+    // so a success here means "received, confirming", not "confirmed".
+    function renderPaymentLanding() {
+      const param = getQueryParam('payment');
+      const state = paymentLandingState(param);
+      const el = document.getElementById('paymentLanding');
+      if (!state) { el.hidden = true; return; }
+
+      el.className = `payment-landing payment-landing--${state.type}`;
+      el.hidden = false;
+      el.innerHTML = `
+        <button class="payment-landing-close" type="button" aria-label="Dismiss">&#10005;</button>
+        <h2 class="payment-landing-title">${escapeHtml(state.title)}</h2>
+        <p class="payment-landing-msg">${escapeHtml(state.message)}</p>
+      `;
+      el.querySelector('.payment-landing-close').addEventListener('click', () => {
+        el.hidden = true;
+      });
+
+      // Drop ?payment= so a refresh or shared link doesn't re-trigger the banner,
+      // without a full reload.
+      if (window.history && window.history.replaceState) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payment');
+        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+      }
+
+      // On a successful return the confirming webhook may land within seconds —
+      // poll a few extra times so the freshly confirmed donation surfaces fast
+      // instead of waiting on the 30s heartbeat.
+      if (param === 'success') {
+        [2000, 5000, 10000, 20000].forEach((delay) => setTimeout(loadCampaign, delay));
+      }
+    }
+
     // ==================== Init ====================
 
     if (localStorage.getItem(`admin_${slug}`) === 'true') {
       setAdminMode(true);
     }
 
+    renderPaymentLanding();
     loadCampaign();
     loadDocuments();
 
