@@ -740,6 +740,23 @@ a {
 .doc-tile-delete:focus-visible { opacity: 1; }
 .doc-tile-delete:hover { background: #872f24; transform: scale(1.08); }
 
+/* Organizer reordering */
+.doc-reorder-hint {
+  margin: -6px 0 14px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.doc-gallery.reorderable .doc-tile { cursor: grab; }
+.doc-gallery.reorderable .doc-tile:active { cursor: grabbing; }
+
+.doc-tile.dragging {
+  opacity: 0.45;
+  transform: scale(0.96) rotate(0.6deg);
+  border-style: dashed;
+}
+
 /* ---------- Organizer upload (drag & drop) ---------- */
 
 .drag-drop-area {

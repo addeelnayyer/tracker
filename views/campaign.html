@@ -56,6 +56,7 @@
     <!-- Documents Gallery -->
     <div class="documents-section" id="documentsSection" style="display: none;">
       <div class="section-label">Campaign Documents</div>
+      <p class="doc-reorder-hint" id="docReorderHint" style="display: none;">Drag tiles to set the order donors see.</p>
       <div class="doc-gallery" id="docGallery"></div>
     </div>
 
@@ -404,6 +405,7 @@
     // ==================== Documents gallery ====================
 
     let galleryImages = []; // image documents only, in display order
+    let galleryDocs = [];   // every document, in display order
 
     async function loadDocuments() {
       try {
@@ -417,6 +419,8 @@
     function renderGallery(documents) {
       const section = document.getElementById('documentsSection');
       const gallery = document.getElementById('docGallery');
+      const hint = document.getElementById('docReorderHint');
+      galleryDocs = documents;
 
       if (!documents.length) {
         section.style.display = 'none';
@@ -426,31 +430,88 @@
       }
 
       section.style.display = 'block';
+      gallery.classList.toggle('reorderable', isAdmin);
+      hint.style.display = isAdmin && documents.length > 1 ? 'block' : 'none';
       galleryImages = documents.filter(d => (d.mime_type || '').startsWith('image/'));
 
       gallery.innerHTML = documents.map(doc => {
         const deleteBtn = isAdmin
           ? `<button class="doc-tile-delete" data-doc-id="${doc.id}" aria-label="Delete ${escapeHtml(doc.name)}">&#10005;</button>`
           : '';
+        const dragAttr = isAdmin ? ' draggable="true"' : '';
 
         if ((doc.mime_type || '').startsWith('image/')) {
           const index = galleryImages.findIndex(img => img.id === doc.id);
           return `
-            <figure class="doc-tile" data-image-index="${index}" tabindex="0" role="button"
-                    aria-label="View ${escapeHtml(doc.name)}">
+            <figure class="doc-tile" data-doc-id="${doc.id}" data-image-index="${index}" tabindex="0" role="button"
+                    aria-label="View ${escapeHtml(doc.name)}"${dragAttr}>
               <img src="${escapeHtml(doc.url)}" alt="${escapeHtml(doc.name)}" loading="lazy">
               ${deleteBtn}
             </figure>`;
         }
 
         return `
-          <a class="doc-tile doc-tile--pdf" href="${escapeHtml(doc.url)}" target="_blank" rel="noopener">
+          <a class="doc-tile doc-tile--pdf" data-doc-id="${doc.id}" href="${escapeHtml(doc.url)}" target="_blank" rel="noopener"${dragAttr}>
             <span class="doc-stamp">PDF</span>
             <span class="doc-tile-name">${escapeHtml(doc.name)}</span>
             ${deleteBtn}
           </a>`;
       }).join('');
     }
+
+    // ==================== Organizer drag-to-reorder ====================
+
+    const docGallery = document.getElementById('docGallery');
+    let draggedTile = null;
+
+    docGallery.addEventListener('dragstart', (e) => {
+      const tile = e.target.closest('.doc-tile');
+      if (!isAdmin || !tile) return;
+      draggedTile = tile;
+      tile.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', tile.dataset.docId);
+    });
+
+    docGallery.addEventListener('dragover', (e) => {
+      if (!draggedTile) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const target = e.target.closest('.doc-tile');
+      if (!target || target === draggedTile) return;
+      // Slot the dragged tile before or after the hovered one, by pointer side
+      const rect = target.getBoundingClientRect();
+      const after = e.clientX > rect.left + rect.width / 2;
+      docGallery.insertBefore(draggedTile, after ? target.nextSibling : target);
+    });
+
+    docGallery.addEventListener('drop', (e) => {
+      if (draggedTile) e.preventDefault();
+    });
+
+    docGallery.addEventListener('dragend', async () => {
+      if (!draggedTile) return;
+      draggedTile.classList.remove('dragging');
+      draggedTile = null;
+
+      const orderedIds = [...docGallery.querySelectorAll('.doc-tile')].map(t => t.dataset.docId);
+      if (orderedIds.join(',') === galleryDocs.map(d => d.id).join(',')) return;
+
+      // Re-render from the new order so lightbox indices stay in sync
+      const docsById = new Map(galleryDocs.map(d => [d.id, d]));
+      renderGallery(orderedIds.map(id => docsById.get(id)));
+
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      try {
+        await apiCall(`/api/documents/${slug}/reorder`, 'PUT', { email, password, order: orderedIds });
+        showMessage('message', 'Document order saved', 'success');
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to save document order', 'error');
+        loadDocuments();
+      }
+    });
 
     // One delegated handler covers opening the lightbox and deleting
     document.getElementById('docGallery').addEventListener('click', (e) => {

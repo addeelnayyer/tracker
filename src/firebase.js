@@ -127,6 +127,19 @@ const addDocument = async (campaignId, documentData) => {
   }
 };
 
+const updateDocumentOrders = async (campaignId, orderedIds) => {
+  try {
+    const updates = {};
+    orderedIds.forEach((docId, index) => {
+      updates[`documents/${campaignId}/${docId}/display_order`] = index;
+    });
+    await db.ref().update(updates);
+  } catch (error) {
+    console.error('Error updating document order:', error);
+    throw error;
+  }
+};
+
 const deleteDocument = async (campaignId, documentId) => {
   try {
     await db.ref(`documents/${campaignId}/${documentId}`).remove();
@@ -198,6 +211,7 @@ module.exports = {
   deleteDonation,
   getDocuments,
   addDocument,
+  updateDocumentOrders,
   deleteDocument,
   getBankDetails,
   addBankDetail,
