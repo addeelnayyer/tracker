@@ -47,12 +47,24 @@ function getQueryParam(param) {
   return urlParams.get(param);
 }
 
-// Format currency
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  }).format(amount);
+// Format currency — whole amounts render without trailing .00
+function formatCurrency(amount, currency = 'USD') {
+  const value = Number(amount) || 0;
+  const fractionDigits = Number.isInteger(value) ? 0 : 2;
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: 2
+    }).format(value);
+  } catch (e) {
+    // Unknown currency code — fall back to a plain prefix
+    return `${currency} ${value.toLocaleString('en-US', {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: 2
+    })}`;
+  }
 }
 
 // Format date

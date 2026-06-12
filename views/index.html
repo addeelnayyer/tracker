@@ -35,9 +35,31 @@
         <small class="hint">Your campaign's public address: /campaign/<strong>your-slug</strong></small>
       </div>
 
-      <div class="form-group">
-        <label for="targetAmount">Target Amount (USD)</label>
-        <input type="number" id="targetAmount" name="targetAmount" placeholder="10,000" step="0.01" min="0" required>
+      <div class="form-row form-row--amount">
+        <div class="form-group">
+          <label for="targetAmount">Target Amount</label>
+          <input type="number" id="targetAmount" name="targetAmount" placeholder="10,000" step="0.01" min="0" required>
+        </div>
+
+        <div class="form-group">
+          <label for="currency">Currency</label>
+          <select id="currency" name="currency" required>
+            <option value="USD" selected>USD — US Dollar</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="GBP">GBP — British Pound</option>
+            <option value="PKR">PKR — Pakistani Rupee</option>
+            <option value="AED">AED — UAE Dirham</option>
+            <option value="SAR">SAR — Saudi Riyal</option>
+            <option value="QAR">QAR — Qatari Riyal</option>
+            <option value="KWD">KWD — Kuwaiti Dinar</option>
+            <option value="INR">INR — Indian Rupee</option>
+            <option value="BDT">BDT — Bangladeshi Taka</option>
+            <option value="TRY">TRY — Turkish Lira</option>
+            <option value="MYR">MYR — Malaysian Ringgit</option>
+            <option value="CAD">CAD — Canadian Dollar</option>
+            <option value="AUD">AUD — Australian Dollar</option>
+          </select>
+        </div>
       </div>
 
       <div class="form-group">
@@ -75,6 +97,7 @@
       const name = document.getElementById('campaignName').value.trim();
       const slug = document.getElementById('campaignSlug').value.trim().toLowerCase();
       const targetAmount = parseFloat(document.getElementById('targetAmount').value);
+      const currency = document.getElementById('currency').value;
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
@@ -115,6 +138,7 @@
           name,
           slug,
           targetAmount,
+          currency,
           email,
           password
         });

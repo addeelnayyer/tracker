@@ -13,10 +13,15 @@ const hashPassword = (password) => {
 // Create a new campaign
 router.post('/', async (req, res) => {
   try {
-    const { name, slug, targetAmount, email, password } = req.body;
+    const { name, slug, targetAmount, currency, email, password } = req.body;
 
     if (!name || !slug || !targetAmount || !email || !password) {
       return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const currencyCode = (currency || 'USD').toUpperCase();
+    if (!/^[A-Z]{3}$/.test(currencyCode)) {
+      return res.status(400).json({ error: 'Currency must be a 3-letter ISO code' });
     }
 
     // Check if campaign slug already exists
@@ -33,6 +38,7 @@ router.post('/', async (req, res) => {
       slug,
       name,
       target_amount: parseFloat(targetAmount),
+      currency: currencyCode,
       accumulated_amount: 0,
       email,
       password_hash: passwordHash,
@@ -61,6 +67,7 @@ router.get('/:slug', async (req, res) => {
     }
 
     const donations = await firebase.getDonations(campaign.id);
+    const bankDetails = await firebase.getBankDetails(campaign.id);
 
     const progressPercentage = (campaign.accumulated_amount / campaign.target_amount) * 100;
 
@@ -70,9 +77,11 @@ router.get('/:slug', async (req, res) => {
       name: campaign.name,
       slug: campaign.slug,
       target_amount: campaign.target_amount,
+      currency: campaign.currency || 'USD',
       accumulated_amount: campaign.accumulated_amount,
       created_at: campaign.created_at,
       donations: donations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
+      bank_details: bankDetails.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
       progressPercentage: Math.min(progressPercentage, 100)
     });
   } catch (error) {
