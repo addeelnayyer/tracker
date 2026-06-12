@@ -59,9 +59,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Something went wrong!' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Campaign Tracker running at http://localhost:${PORT}`);
-});
+// Start server (only when run directly, not when imported by Cloud Functions)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Campaign Tracker running at http://localhost:${PORT}`);
+  });
+}
 
 module.exports = app;

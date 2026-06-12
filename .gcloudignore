@@ -1,0 +1,6 @@
+.git
+.gitignore
+README.md
+CLAUDE.md
+docs/
+.env.local
