@@ -37,48 +37,66 @@ const toPaisa = (pkr) => Math.round(pkr * 100);
 // confirmed against a live Safepay sandbox during the webhook slice (#6 / ADR
 // "Open / to confirm"); they are isolated here behind this one function so a
 // correction touches nothing else.
-async function createCheckoutSession({ amountPkr, donorEmail, donorName, successUrl, cancelUrl }) {
+async function createCheckoutSession({ amountPkr, successUrl, cancelUrl }) {
   const secret = process.env.SAFEPAY_SECRET_KEY;
   const apiKey = process.env.SAFEPAY_API_KEY;
   if (!secret || !apiKey) {
     throw new Error('Safepay is not configured (SAFEPAY_API_KEY / SAFEPAY_SECRET_KEY)');
   }
 
-  const response = await fetch(`${hosts().api}/order/payments/v3/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-sfpy-merchant-secret': secret,
-    },
-    body: JSON.stringify({
-      merchant_api_key: apiKey,
-      intent: 'CYBERSOURCE',
-      mode: 'payment',
-      currency: 'PKR',
-      amount: toPaisa(amountPkr),
-      metadata: { donor_email: donorEmail, donor_name: donorName || null },
+  const [sessionRes, passportRes] = await Promise.all([
+    fetch(`${hosts().api}/order/payments/v3/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-sfpy-merchant-secret': secret,
+      },
+      body: JSON.stringify({
+        merchant_api_key: apiKey,
+        intent: 'CYBERSOURCE',
+        mode: 'payment',
+        currency: 'PKR',
+        amount: toPaisa(amountPkr),
+      }),
     }),
-  });
+    fetch(`${hosts().api}/client/passport/v1/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-sfpy-merchant-secret': secret,
+      },
+    }),
+  ]);
 
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    throw new Error(`Safepay session setup failed (${response.status}): ${detail}`.trim());
+  if (!sessionRes.ok) {
+    const detail = await sessionRes.text().catch(() => '');
+    throw new Error(`Safepay session setup failed (${sessionRes.status}): ${detail}`.trim());
+  }
+  if (!passportRes.ok) {
+    const detail = await passportRes.text().catch(() => '');
+    throw new Error(`Safepay passport token failed (${passportRes.status}): ${detail}`.trim());
   }
 
-  const body = await response.json();
-  const tracker = body?.data?.tracker?.token || body?.data?.token || body?.tracker;
+  const sessionBody = await sessionRes.json();
+  const tracker = sessionBody?.data?.tracker?.token || sessionBody?.data?.token || sessionBody?.tracker;
   if (!tracker) {
     throw new Error('Safepay session setup returned no tracker id');
   }
 
-  return { tracker, redirectUrl: buildCheckoutUrl({ tracker, successUrl, cancelUrl }) };
+  const passportBody = await passportRes.json();
+  const tbt = passportBody?.data;
+  if (!tbt) {
+    throw new Error('Safepay passport token returned no tbt');
+  }
+
+  return { tracker, redirectUrl: buildCheckoutUrl({ tracker, tbt, successUrl, cancelUrl }) };
 }
 
 // Build the hosted-checkout URL the donor is sent to. `redirect_url`/`cancel_url`
 // are where Safepay returns the donor after pay/cancel — built by the caller
 // from PUBLIC_BASE_URL, never guessed from the request host.
-function buildCheckoutUrl({ tracker, successUrl, cancelUrl }) {
-  const params = new URLSearchParams({ tracker, env: environment(), source: 'custom' });
+function buildCheckoutUrl({ tracker, tbt, successUrl, cancelUrl }) {
+  const params = new URLSearchParams({ tracker, tbt, environment: environment(), source: 'hosted' });
   if (successUrl) params.set('redirect_url', successUrl);
   if (cancelUrl) params.set('cancel_url', cancelUrl);
   return `${hosts().checkout}/?${params.toString()}`;

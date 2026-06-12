@@ -66,8 +66,6 @@ router.post('/:campaignSlug/checkout', async (req, res) => {
 
     const { tracker, redirectUrl } = await safepay.createCheckoutSession({
       amountPkr,
-      donorEmail,
-      donorName: donorDisplayName || null,
       successUrl,
       cancelUrl,
     });
