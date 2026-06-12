@@ -504,6 +504,67 @@ button:active {
   margin-top: 38px;
 }
 
+/* Toolbar: search + sort */
+.donations-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  align-items: center;
+}
+
+.donations-search-wrap {
+  flex: 1;
+  position: relative;
+}
+
+.donations-search-wrap input[type="search"] {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font-body);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.donations-search-wrap input[type="search"]:focus {
+  outline: none;
+  border-color: var(--pine);
+  box-shadow: 0 0 0 3px rgba(30, 90, 69, 0.14);
+}
+
+.donations-search-wrap input[type="search"]::placeholder {
+  color: #b3ac99;
+}
+
+.donations-sort {
+  flex-shrink: 0;
+  width: auto;
+  padding: 9px 32px 9px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  color: var(--ink-soft);
+  background-color: var(--card);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235c6660' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.donations-sort:focus {
+  outline: none;
+  border-color: var(--pine);
+  box-shadow: 0 0 0 3px rgba(30, 90, 69, 0.14);
+}
+
 .donation-item {
   display: flex;
   justify-content: space-between;
@@ -511,10 +572,24 @@ button:active {
   gap: 14px;
   padding: 14px 2px;
   border-bottom: 1px solid var(--hairline);
+  transition: background 0.15s ease;
 }
 
 .donation-item:last-child {
   border-bottom: none;
+}
+
+/* Drag-over highlight when admin drops a proof file */
+.donation-item--proof-dragover {
+  background: var(--pine-wash);
+  border-radius: 4px;
+  outline: 2px dashed var(--pine);
+  outline-offset: -2px;
+}
+
+.donation-item--uploading {
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 .donation-info h3 {
@@ -531,14 +606,152 @@ button:active {
   color: var(--ink-faint);
 }
 
+/* Right-side wrapper: amount + proof icon + admin buttons */
+.donation-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .donation-amount {
-  margin-left: auto;
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 600;
   color: var(--pine-deep);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Proof icon: view proof (public + admin) */
+.proof-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  line-height: 1;
+  background: transparent;
+  color: var(--pine);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.proof-icon:hover {
+  background: var(--pine-wash);
+  border-color: var(--pine);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Proof add: admin label wrapping hidden file input */
+.proof-add {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  line-height: 1;
+  background: transparent;
+  color: var(--ink-faint);
+  border: 1px dashed var(--hairline-strong);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+
+.proof-add:hover {
+  background: var(--pine-wash);
+  border-color: var(--pine);
+  color: var(--pine);
+}
+
+.proof-add input[type="file"] {
+  display: none;
+}
+
+/* Edit button */
+.edit-btn {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid transparent;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+}
+
+.edit-btn:hover {
+  background: #f0ece0;
+  border-color: var(--hairline-strong);
+  color: var(--ink);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Inline donation edit form */
+.donation-edit-form {
+  width: 100%;
+  padding: 14px 2px;
+}
+
+.donation-edit-fields {
+  display: grid;
+  grid-template-columns: 1fr 140px 180px;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.donation-edit-fields label {
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.donation-edit-fields input {
+  padding: 8px 10px;
+  font-size: 13.5px;
+}
+
+.donation-edit-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-save-btn {
+  padding: 8px 20px;
+  font-size: 13px;
+}
+
+.edit-cancel-btn {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--hairline-strong);
+  padding: 8px 16px;
+  font-size: 13px;
+  margin-top: 0;
+  width: auto;
+}
+
+.edit-cancel-btn:hover {
+  background: #f0ece0;
+  border-color: var(--hairline-strong);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Organizer proof tip note */
+.proof-tip {
+  font-size: 13px;
+  color: var(--ink-faint);
+  font-style: italic;
+  margin: 12px 0 0;
 }
 
 .empty-note {
@@ -1029,4 +1242,11 @@ body.lightbox-open { overflow: hidden; }
   .lightbox-stage img { max-height: calc(100dvh - 120px); border-width: 4px; }
 
   .lightbox-caption { max-width: calc(100vw - 32px); bottom: 14px; }
+
+  .donations-toolbar { flex-wrap: wrap; }
+  .donations-sort { width: 100%; }
+
+  .donation-edit-fields {
+    grid-template-columns: 1fr;
+  }
 }

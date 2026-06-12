@@ -101,6 +101,15 @@ const deleteDonation = async (campaignId, donationId) => {
   }
 };
 
+const updateDonation = async (campaignId, donationId, data) => {
+  try {
+    await db.ref(`donations/${campaignId}/${donationId}`).update(data);
+  } catch (error) {
+    console.error('Error updating donation:', error);
+    throw error;
+  }
+};
+
 const getDocuments = async (campaignId) => {
   try {
     const snapshot = await db.ref(`documents/${campaignId}`).once('value');
@@ -210,6 +219,7 @@ module.exports = {
   addDonation,
   updateCampaignAmount,
   deleteDonation,
+  updateDonation,
   getDocuments,
   addDocument,
   updateDocumentOrders,

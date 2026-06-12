@@ -35,7 +35,7 @@
       </div>
       <div class="progress-meta">
         <span class="funded" id="progressLabel">0% funded</span>
-        <span>Live · updates automatically</span>
+        <span id="lastUpdatedLabel"></span>
       </div>
     </div>
 
@@ -48,6 +48,15 @@
     <!-- Donations List -->
     <div class="donations-list">
       <div class="section-label">Donation Ledger</div>
+      <div class="donations-toolbar" id="donationsToolbar">
+        <div class="donations-search-wrap">
+          <input type="search" id="donationSearch" placeholder="Search by donor name…" autocomplete="off" aria-label="Search donations">
+        </div>
+        <select id="donationSort" class="donations-sort" aria-label="Sort donations">
+          <option value="newest">Newest First</option>
+          <option value="highest">Highest First</option>
+        </select>
+      </div>
       <div id="donationsList">
         <p class="empty-note">Loading donations…</p>
       </div>
@@ -89,6 +98,8 @@
 
         <button type="submit" class="block-btn">Record Donation</button>
       </form>
+
+      <p class="proof-tip">Tip: drag an image or PDF onto any donation row to attach payment proof.</p>
 
       <div class="section-label" style="margin-top: 28px;">Bank Accounts</div>
       <p class="lede" style="font-size: 14px; margin-bottom: 18px;">Add the accounts donors can transfer to. They appear on the public page.</p>
@@ -181,9 +192,29 @@
     const minutes = String(now.getMinutes()).padStart(2, '0');
     document.getElementById('donationTimestamp').value = `${year}-${month}-${day}T${hours}:${minutes}`;
 
-    // Load campaign data
+    // ==================== Donations state ====================
+
     const DONATIONS_PAGE_SIZE = 20;
     let donationsLimit = DONATIONS_PAGE_SIZE;
+    let allDonations = [];
+    let totalDonationsCount = 0;
+    let fullDonationsLoaded = false;
+    let sortOrder = 'newest';
+    let searchQuery = '';
+
+    async function ensureFullDonations() {
+      if (fullDonationsLoaded) return;
+      try {
+        const response = await apiCall(`/api/campaigns/${slug}`); // no limit → all donations
+        allDonations = response.donations || [];
+        totalDonationsCount = allDonations.length;
+        fullDonationsLoaded = true;
+      } catch (err) {
+        console.error('Failed to load all donations', err);
+      }
+    }
+
+    // ==================== Load campaign ====================
 
     async function loadCampaign() {
       try {
@@ -191,7 +222,6 @@
 
         campaignCurrency = response.currency || 'USD';
         document.getElementById('donationCurrencyLabel').textContent = campaignCurrency;
-
         document.getElementById('campaignTitle').textContent = response.name;
         document.title = `${response.name} — Nasr`;
         document.getElementById('accumulatedAmount').textContent = formatCurrency(response.accumulated_amount, campaignCurrency);
@@ -201,24 +231,25 @@
         document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
         document.getElementById('progressLabel').textContent = Math.round(progress) + '% funded';
 
-        // Display donations
-        const donationsList = document.getElementById('donationsList');
-        if (response.donations && response.donations.length > 0) {
-          donationsList.innerHTML = response.donations.map(donation => `
-            <div class="donation-item">
-              <div class="donation-info">
-                <h3>${escapeHtml(donation.donor_name)}</h3>
-                <p>${formatDate(donation.timestamp)}</p>
-              </div>
-              <div class="donation-amount">${formatCurrency(donation.amount, campaignCurrency)}</div>
-              ${isAdmin ? `<button class="delete-btn" onclick="deleteDonation('${donation.id}')">Delete</button>` : ''}
-            </div>
-          `).join('');
+        const lbl = document.getElementById('lastUpdatedLabel');
+        if (response.last_donation_at) {
+          lbl.textContent = 'Updated ' + formatDate(response.last_donation_at);
         } else {
-          donationsList.innerHTML = '<p class="empty-note">No donations yet. Be the first to donate!</p>';
+          lbl.textContent = '';
         }
 
-        renderDonationsPagination(response);
+        allDonations = response.donations || [];
+        totalDonationsCount = response.donations_count || 0;
+        fullDonationsLoaded = allDonations.length >= totalDonationsCount;
+
+        // If search or non-default sort is active and we still lack full data, fetch it
+        const needsFull = searchQuery || sortOrder !== 'newest';
+        if (needsFull && !fullDonationsLoaded) {
+          await ensureFullDonations();
+        }
+
+        renderDonations();
+        renderDonationsPagination();
         renderBankDetails(response.bank_details || []);
       } catch (error) {
         showMessage('message', 'Failed to load campaign', 'error');
@@ -226,10 +257,77 @@
       }
     }
 
-    function renderDonationsPagination(response) {
+    // ==================== Render donations ====================
+
+    function donationItemHTML(donation) {
+      let proofSection = '';
+      if (donation.proof_url) {
+        const isImg = (donation.proof_mime_type || '').startsWith('image/');
+        proofSection = `<button class="proof-icon" type="button"
+          data-proof-url="${escapeHtml(donation.proof_url)}"
+          data-proof-name="${escapeHtml(donation.donor_name)} — Proof"
+          data-proof-mime="${escapeHtml(donation.proof_mime_type || '')}"
+          title="View payment proof" aria-label="View payment proof">&#9112;</button>`;
+      } else if (isAdmin) {
+        proofSection = `<label class="proof-add" title="Attach payment proof" aria-label="Attach proof">
+          &#9112;<input type="file" class="proof-file-input" data-donation-id="${donation.id}"
+                  accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf">
+        </label>`;
+      }
+
+      const adminActions = isAdmin ? `
+        <button class="edit-btn" type="button" data-edit-id="${donation.id}">Edit</button>
+        <button class="delete-btn" type="button" data-delete-id="${donation.id}">Delete</button>
+      ` : '';
+
+      return `
+        <div class="donation-item${isAdmin ? ' donation-item--admin' : ''}" data-donation-id="${donation.id}">
+          <div class="donation-info">
+            <h3>${escapeHtml(donation.donor_name)}</h3>
+            <p>${formatDate(donation.timestamp)}</p>
+          </div>
+          <div class="donation-item-actions">
+            <div class="donation-amount">${formatCurrency(donation.amount, campaignCurrency)}</div>
+            ${proofSection}
+            ${adminActions}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDonations() {
+      let donations = [...allDonations];
+
+      if (searchQuery) {
+        donations = donations.filter(d =>
+          d.donor_name.toLowerCase().includes(searchQuery)
+        );
+      }
+
+      if (sortOrder === 'highest') {
+        donations.sort((a, b) => b.amount - a.amount);
+      } else {
+        donations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      }
+
+      const list = document.getElementById('donationsList');
+
+      if (donations.length === 0) {
+        if (searchQuery && allDonations.length > 0) {
+          list.innerHTML = '<p class="empty-note">No donors match your search.</p>';
+        } else {
+          list.innerHTML = '<p class="empty-note">No donations yet. Be the first to donate!</p>';
+        }
+        return;
+      }
+
+      list.innerHTML = donations.map(donationItemHTML).join('');
+    }
+
+    function renderDonationsPagination() {
       const pagination = document.getElementById('donationsPagination');
-      const shown = response.donations ? response.donations.length : 0;
-      const total = response.donations_count || shown;
+      const shown = allDonations.length;
+      const total = totalDonationsCount || shown;
 
       if (total > shown) {
         const nextBatch = Math.min(DONATIONS_PAGE_SIZE, total - shown);
@@ -251,7 +349,201 @@
       }
     });
 
-    // Login handler
+    // ==================== Search & sort ====================
+
+    let searchTimer;
+    document.getElementById('donationSearch').addEventListener('input', (e) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(async () => {
+        searchQuery = e.target.value.trim().toLowerCase();
+        if (searchQuery && !fullDonationsLoaded) {
+          await ensureFullDonations();
+          renderDonationsPagination();
+        }
+        renderDonations();
+      }, 300);
+    });
+
+    document.getElementById('donationSort').addEventListener('change', async (e) => {
+      sortOrder = e.target.value;
+      if (sortOrder === 'highest' && !fullDonationsLoaded) {
+        await ensureFullDonations();
+        renderDonationsPagination();
+      }
+      renderDonations();
+    });
+
+    // ==================== Donation list event delegation ====================
+
+    const donationsList = document.getElementById('donationsList');
+
+    donationsList.addEventListener('click', async (e) => {
+      const proofBtn = e.target.closest('.proof-icon');
+      if (proofBtn) {
+        const url = proofBtn.dataset.proofUrl;
+        const name = proofBtn.dataset.proofName;
+        const mime = proofBtn.dataset.proofMime;
+        if (mime.startsWith('image/')) {
+          openProofViewer(url, name);
+        } else {
+          window.open(url, '_blank', 'noopener');
+        }
+        return;
+      }
+
+      const editBtn = e.target.closest('.edit-btn');
+      if (editBtn) {
+        startEditDonation(editBtn.dataset.editId);
+        return;
+      }
+
+      const deleteBtn = e.target.closest('[data-delete-id]');
+      if (deleteBtn) {
+        deleteDonation(deleteBtn.dataset.deleteId);
+        return;
+      }
+    });
+
+    donationsList.addEventListener('change', async (e) => {
+      const input = e.target.closest('.proof-file-input');
+      if (!input) return;
+      const file = input.files[0];
+      if (!file) return;
+      const donationId = input.dataset.donationId;
+      const item = input.closest('.donation-item');
+      input.value = '';
+      await uploadDonationProof(donationId, file, item);
+    });
+
+    // ==================== Proof drag-drop on donation items ====================
+
+    donationsList.addEventListener('dragover', (e) => {
+      if (!isAdmin) return;
+      const item = e.target.closest('.donation-item--admin');
+      if (!item) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      donationsList.querySelectorAll('.donation-item--proof-dragover').forEach(el =>
+        el.classList.remove('donation-item--proof-dragover')
+      );
+      item.classList.add('donation-item--proof-dragover');
+    });
+
+    donationsList.addEventListener('dragleave', (e) => {
+      const item = e.target.closest('.donation-item--proof-dragover');
+      if (!item) return;
+      if (!item.contains(e.relatedTarget)) {
+        item.classList.remove('donation-item--proof-dragover');
+      }
+    });
+
+    donationsList.addEventListener('drop', async (e) => {
+      if (!isAdmin) return;
+      const item = e.target.closest('.donation-item--admin');
+      if (!item) return;
+      e.preventDefault();
+      item.classList.remove('donation-item--proof-dragover');
+      const files = e.dataTransfer.files;
+      if (!files.length) return;
+      await uploadDonationProof(item.dataset.donationId, files[0], item);
+    });
+
+    async function uploadDonationProof(donationId, file, itemEl) {
+      const allowed = ['image/jpeg','image/png','image/gif','image/webp','image/svg+xml','application/pdf'];
+      if (!allowed.includes(file.type)) {
+        showMessage('message', 'Only images and PDFs are allowed as proof', 'error');
+        return;
+      }
+
+      const email = localStorage.getItem(`admin_email_${slug}`);
+      const password = localStorage.getItem(`admin_password_${slug}`);
+
+      itemEl && itemEl.classList.add('donation-item--uploading');
+      try {
+        const formData = new FormData();
+        formData.append('proof', file);
+        formData.append('email', email);
+        formData.append('password', password);
+        await apiCall(`/api/donations/${slug}/${donationId}/proof`, 'POST', formData, true);
+        showMessage('message', 'Proof attached', 'success');
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to upload proof', 'error');
+        itemEl && itemEl.classList.remove('donation-item--uploading');
+      }
+    }
+
+    // ==================== Edit donation ====================
+
+    function toLocalDatetimeValue(isoString) {
+      const d = new Date(isoString);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function startEditDonation(donationId) {
+      const donation = allDonations.find(d => d.id === donationId);
+      if (!donation) return;
+
+      const item = donationsList.querySelector(`.donation-item[data-donation-id="${donationId}"]`);
+      if (!item) return;
+
+      item.innerHTML = `
+        <form class="donation-edit-form" data-edit-id="${donationId}">
+          <div class="donation-edit-fields">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Donor Name</label>
+              <input type="text" class="donation-edit-name" value="${escapeHtml(donation.donor_name)}" required>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Amount</label>
+              <input type="number" class="donation-edit-amount" value="${donation.amount}" step="0.01" min="0" required>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Date &amp; Time</label>
+              <input type="datetime-local" class="donation-edit-date" value="${toLocalDatetimeValue(donation.timestamp)}" required>
+            </div>
+          </div>
+          <div class="donation-edit-btns">
+            <button type="submit" class="edit-save-btn">Save</button>
+            <button type="button" class="edit-cancel-btn">Cancel</button>
+          </div>
+        </form>
+      `;
+
+      item.querySelector('.donation-edit-name').focus();
+
+      item.querySelector('.donation-edit-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const donorName = form.querySelector('.donation-edit-name').value.trim();
+        const amount = parseFloat(form.querySelector('.donation-edit-amount').value);
+        const timestamp = new Date(form.querySelector('.donation-edit-date').value).toISOString();
+        const email = localStorage.getItem(`admin_email_${slug}`);
+        const password = localStorage.getItem(`admin_password_${slug}`);
+
+        const saveBtn = form.querySelector('.edit-save-btn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+
+        try {
+          await apiCall(`/api/donations/${slug}/${donationId}`, 'PUT', {
+            donorName, amount, timestamp, email, password
+          });
+          showMessage('message', 'Donation updated', 'success');
+          loadCampaign();
+        } catch (error) {
+          showMessage('message', error.message || 'Failed to update donation', 'error');
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save';
+        }
+      });
+
+      item.querySelector('.edit-cancel-btn').addEventListener('click', renderDonations);
+    }
+
+    // ==================== Login handler ====================
+
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -280,7 +572,8 @@
       }
     });
 
-    // Donation form handler
+    // ==================== Donation form ====================
+
     document.getElementById('donationForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -292,11 +585,7 @@
 
       try {
         await apiCall(`/api/donations/${slug}`, 'POST', {
-          donorName,
-          amount,
-          timestamp,
-          email,
-          password
+          donorName, amount, timestamp, email, password
         });
 
         showMessage('message', 'Donation added successfully!', 'success');
@@ -327,11 +616,7 @@
       const password = localStorage.getItem(`admin_password_${slug}`);
 
       try {
-        await apiCall(`/api/donations/${slug}/${donationId}`, 'DELETE', {
-          email,
-          password
-        });
-
+        await apiCall(`/api/donations/${slug}/${donationId}`, 'DELETE', { email, password });
         showMessage('message', 'Donation deleted successfully', 'success');
         loadCampaign();
       } catch (error) {
@@ -405,11 +690,7 @@
 
       try {
         await apiCall(`/api/bank-details/${slug}`, 'POST', {
-          bankName,
-          accountTitle,
-          accountNumber,
-          email,
-          password
+          bankName, accountTitle, accountNumber, email, password
         });
 
         showMessage('message', 'Bank account added', 'success');
@@ -437,8 +718,8 @@
 
     // ==================== Documents gallery ====================
 
-    let galleryImages = []; // image documents only, in display order
-    let galleryDocs = [];   // every document, in display order
+    let galleryImages = [];
+    let galleryDocs = [];
 
     async function loadDocuments() {
       try {
@@ -512,7 +793,6 @@
       e.dataTransfer.dropEffect = 'move';
       const target = e.target.closest('.doc-tile');
       if (!target || target === draggedTile) return;
-      // Slot the dragged tile before or after the hovered one, by pointer side
       const rect = target.getBoundingClientRect();
       const after = e.clientX > rect.left + rect.width / 2;
       docGallery.insertBefore(draggedTile, after ? target.nextSibling : target);
@@ -530,7 +810,6 @@
       const orderedIds = [...docGallery.querySelectorAll('.doc-tile')].map(t => t.dataset.docId);
       if (orderedIds.join(',') === galleryDocs.map(d => d.id).join(',')) return;
 
-      // Re-render from the new order so lightbox indices stay in sync
       const docsById = new Map(galleryDocs.map(d => [d.id, d]));
       renderGallery(orderedIds.map(id => docsById.get(id)));
 
@@ -546,7 +825,6 @@
       }
     });
 
-    // One delegated handler covers opening the lightbox and deleting
     document.getElementById('docGallery').addEventListener('click', (e) => {
       const deleteBtn = e.target.closest('.doc-tile-delete');
       if (deleteBtn) {
@@ -657,6 +935,12 @@
     const lightboxImage = document.getElementById('lightboxImage');
     const lightboxStage = document.getElementById('lightboxStage');
     let lightboxIndex = 0;
+    let proofOverride = null; // { url, name } when viewing a single proof image
+
+    function openProofViewer(url, name) {
+      proofOverride = { url, name };
+      openLightbox(0);
+    }
 
     function openLightbox(index) {
       lightboxIndex = index;
@@ -668,25 +952,30 @@
     }
 
     function closeLightbox() {
+      proofOverride = null;
       lightbox.classList.remove('open');
       lightbox.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('lightbox-open');
     }
 
     function showSlide(direction) {
-      const doc = galleryImages[lightboxIndex];
+      const doc = proofOverride || galleryImages[lightboxIndex];
       if (!doc) return;
+
+      const isProof = !!proofOverride;
+      document.getElementById('lightboxPrev').style.visibility = isProof ? 'hidden' : '';
+      document.getElementById('lightboxNext').style.visibility = isProof ? 'hidden' : '';
 
       const swap = () => {
         lightboxImage.src = doc.url;
         lightboxImage.alt = doc.name;
-        document.getElementById('lightboxCounter').innerHTML =
-          `${lightboxIndex + 1}<span> / ${galleryImages.length}</span>`;
+        document.getElementById('lightboxCounter').innerHTML = isProof
+          ? ''
+          : `${lightboxIndex + 1}<span> / ${galleryImages.length}</span>`;
         document.getElementById('lightboxCaption').textContent = doc.name;
       };
 
       if (direction) {
-        // Brief slide-out/slide-in so navigation reads as a turn of the plate
         lightboxImage.classList.add(direction === 'next' ? 'slide-left' : 'slide-right');
         setTimeout(() => {
           swap();
@@ -696,11 +985,12 @@
         swap();
       }
 
-      // Preload neighbours so browsing feels instant
-      [lightboxIndex + 1, lightboxIndex - 1].forEach(i => {
-        const neighbour = galleryImages[(i + galleryImages.length) % galleryImages.length];
-        if (neighbour) new Image().src = neighbour.url;
-      });
+      if (!isProof) {
+        [lightboxIndex + 1, lightboxIndex - 1].forEach(i => {
+          const neighbour = galleryImages[(i + galleryImages.length) % galleryImages.length];
+          if (neighbour) new Image().src = neighbour.url;
+        });
+      }
     }
 
     function nextSlide() {
@@ -717,7 +1007,6 @@
     document.getElementById('lightboxNext').addEventListener('click', nextSlide);
     document.getElementById('lightboxPrev').addEventListener('click', prevSlide);
 
-    // Click on the dark scrim (not the image or controls) closes the viewer
     lightbox.addEventListener('click', (e) => {
       if (e.target === lightbox || e.target === lightboxStage) closeLightbox();
     });
@@ -729,7 +1018,6 @@
       else if (e.key === 'ArrowLeft') prevSlide();
     });
 
-    // Swipe gestures on touch devices
     let touchStartX = null;
     lightboxStage.addEventListener('touchstart', (e) => {
       touchStartX = e.touches[0].clientX;
@@ -739,23 +1027,22 @@
       if (touchStartX === null) return;
       const deltaX = e.changedTouches[0].clientX - touchStartX;
       touchStartX = null;
-      if (Math.abs(deltaX) < 40) return; // ignore taps and tiny drags
+      if (Math.abs(deltaX) < 40) return;
       if (deltaX < 0) nextSlide();
       else prevSlide();
     }, { passive: true });
 
-    // Check if user is already logged in
+    // ==================== Init ====================
+
     if (localStorage.getItem(`admin_${slug}`) === 'true') {
       isAdmin = true;
       document.getElementById('loginSection').style.display = 'none';
       document.getElementById('adminSection').style.display = 'block';
     }
 
-    // Initial load
     loadCampaign();
     loadDocuments();
 
-    // Refresh campaign data every 30 seconds
     setInterval(loadCampaign, 30000);
   </script>
 </body>

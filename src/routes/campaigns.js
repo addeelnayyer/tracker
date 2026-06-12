@@ -76,6 +76,13 @@ router.get('/:slug', async (req, res) => {
 
     const progressPercentage = (campaign.accumulated_amount / campaign.target_amount) * 100;
 
+    const lastDonationAt = donations.length > 0
+      ? donations.reduce((latest, d) => {
+          const at = d.created_at || d.timestamp || '';
+          return at > latest ? at : latest;
+        }, '')
+      : null;
+
     // Return campaign data without sensitive information (password_hash, email)
     res.json({
       id: campaign.id,
@@ -85,6 +92,7 @@ router.get('/:slug', async (req, res) => {
       currency: campaign.currency || 'USD',
       accumulated_amount: campaign.accumulated_amount,
       created_at: campaign.created_at,
+      last_donation_at: lastDonationAt,
       donations: pagedDonations,
       donations_count: sortedDonations.length,
       bank_details: bankDetails.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
