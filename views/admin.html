@@ -3,17 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Campaign Tracker - Admin</title>
+  <title>Nasr — Organizer Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,600&family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <div class="container">
-    <h1>Campaign Admin Panel</h1>
-    <p style="color: #888; margin-bottom: 20px;">Please use the campaign URL to access your campaign's admin panel.</p>
-    
+    <header class="brand">
+      <a class="brand-mark" href="/">Nasr<em>.</em></a>
+      <span class="brand-tag">Campaign Ledger</span>
+    </header>
+
+    <h1>Organizer Panel</h1>
+    <p class="lede" style="margin-bottom: 20px;">Use your campaign's own URL to reach its organizer panel.</p>
+
     <div id="message" style="text-align: center;">
-      <p>Redirecting...</p>
+      <p class="empty-note">Redirecting…</p>
     </div>
+
+    <footer class="page-foot">
+      <a href="/">← Back to home</a>
+    </footer>
   </div>
 
   <script>
@@ -22,7 +34,7 @@
     if (slug) {
       window.location.href = `/campaign/${slug}`;
     } else {
-      document.getElementById('message').innerHTML = '<p style="color: #e74c3c;">No campaign specified. <a href="/">Go back home</a></p>';
+      document.getElementById('message').innerHTML = '<div class="error">No campaign specified. <a href="/">Go back home</a></div>';
     }
   </script>
 </body>

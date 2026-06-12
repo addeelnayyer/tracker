@@ -3,14 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Campaign Tracker - Create New Campaign</title>
+  <title>Nasr — Start a Campaign</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,600&family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <div class="container">
+    <header class="brand">
+      <a class="brand-mark" href="/">Nasr<em>.</em></a>
+      <span class="brand-tag">Campaign Ledger</span>
+    </header>
+
     <div class="campaign-header">
-      <h1>🎯 Campaign Tracker</h1>
-      <p>Create a new fundraising campaign to start tracking donations</p>
+      <h1>Start a campaign</h1>
+      <p class="lede">Set a goal, share your link, and keep an honest, public record of every donation.</p>
     </div>
 
     <div id="message"></div>
@@ -22,35 +30,41 @@
       </div>
 
       <div class="form-group">
-        <label for="campaignSlug">Campaign Slug (URL-friendly)</label>
+        <label for="campaignSlug">Campaign Slug</label>
         <input type="text" id="campaignSlug" name="campaignSlug" placeholder="e.g., school-library" required>
-        <small style="color: #888;">Your campaign will be accessible at: campaign-slug</small>
+        <small class="hint">Your campaign's public address: /campaign/<strong>your-slug</strong></small>
       </div>
 
       <div class="form-group">
-        <label for="targetAmount">Target Amount ($)</label>
-        <input type="number" id="targetAmount" name="targetAmount" placeholder="10000" step="0.01" min="0" required>
+        <label for="targetAmount">Target Amount (USD)</label>
+        <input type="number" id="targetAmount" name="targetAmount" placeholder="10,000" step="0.01" min="0" required>
       </div>
 
       <div class="form-group">
         <label for="email">Organizer Email</label>
         <input type="email" id="email" name="email" placeholder="organizer@example.com" required>
-        <small style="color: #888;">You'll use this to manage the campaign</small>
+        <small class="hint">You'll use this to manage the campaign.</small>
       </div>
 
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" placeholder="Enter a strong password" required>
-        <small style="color: #888;">Must be at least 8 characters with uppercase, lowercase, and numbers</small>
-      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="••••••••" required>
+        </div>
 
-      <div class="form-group">
-        <label for="confirmPassword">Confirm Password</label>
-        <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm your password" required>
+        <div class="form-group">
+          <label for="confirmPassword">Confirm Password</label>
+          <input type="password" id="confirmPassword" name="confirmPassword" placeholder="••••••••" required>
+        </div>
       </div>
+      <small class="hint" style="margin-top: -12px; margin-bottom: 22px;">At least 8 characters, with an uppercase letter, a lowercase letter, and a number.</small>
 
-      <button type="submit" style="width: 100%; padding: 14px;">Create Campaign</button>
+      <button type="submit" class="block-btn">Create Campaign</button>
     </form>
+
+    <footer class="page-foot">
+      <a href="/">Nasr</a> — fundraising, accounted for.
+    </footer>
   </div>
 
   <script src="/js/app.js"></script>

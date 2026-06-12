@@ -3,88 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Campaign Tracker - View Campaign</title>
+  <title>Nasr — Campaign</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,600&family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <div class="container">
+    <header class="brand">
+      <a class="brand-mark" href="/">Nasr<em>.</em></a>
+      <span class="brand-tag">Campaign Ledger</span>
+    </header>
+
     <div id="message"></div>
 
     <!-- Campaign Header -->
     <div class="campaign-header" id="campaignHeader">
-      <h1 id="campaignTitle">Loading...</h1>
-      <p id="campaignDescription" style="color: #888;"></p>
+      <h1 id="campaignTitle">Loading…</h1>
+      <p class="lede" id="campaignDescription"></p>
     </div>
 
     <!-- Main Amount Display -->
     <div style="text-align: center;">
       <div class="amount-display" id="accumulatedAmount">$0</div>
-      <div class="amount-target">of <span id="targetAmount">$0</span> goal</div>
-      
+      <div class="amount-target">raised of <span id="targetAmount">$0</span> goal</div>
+
       <!-- Progress Bar -->
       <div class="progress-bar">
-        <div class="progress-fill" id="progressFill" style="width: 0%;">0%</div>
+        <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+      </div>
+      <div class="progress-meta">
+        <span class="funded" id="progressLabel">0% funded</span>
+        <span>Live · updates automatically</span>
       </div>
     </div>
 
     <!-- Donations List -->
     <div class="donations-list">
-      <h2>Recent Donations</h2>
-      <div id="donationsList" style="margin-top: 15px;">
-        <p style="color: #888; text-align: center;">Loading donations...</p>
+      <div class="section-label">Donation Ledger</div>
+      <div id="donationsList">
+        <p class="empty-note">Loading donations…</p>
       </div>
     </div>
 
     <!-- Admin Section -->
     <div class="admin-section" id="adminSection" style="display: none;">
-      <h2>📝 Admin Panel</h2>
-      <p style="color: #888; margin-bottom: 20px;">Add new donations to your campaign</p>
-      
+      <h2>Organizer Panel</h2>
+      <p class="lede">Record new donations to your campaign.</p>
+
       <form id="donationForm">
         <div class="form-group">
           <label for="donorName">Donor Name</label>
           <input type="text" id="donorName" placeholder="e.g., John Doe" required>
         </div>
 
-        <div class="form-group">
-          <label for="donationAmount">Amount ($)</label>
-          <input type="number" id="donationAmount" placeholder="100" step="0.01" min="0" required>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="donationAmount">Amount (USD)</label>
+            <input type="number" id="donationAmount" placeholder="100" step="0.01" min="0" required>
+          </div>
+
+          <div class="form-group">
+            <label for="donationTimestamp">Date &amp; Time</label>
+            <input type="datetime-local" id="donationTimestamp" required>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="donationTimestamp">Date & Time</label>
-          <input type="datetime-local" id="donationTimestamp" required>
-        </div>
-
-        <button type="submit" style="width: 100%;">Add Donation</button>
+        <button type="submit" class="block-btn">Record Donation</button>
       </form>
 
-      <button class="secondary-btn" onclick="logoutAdmin()">Logout</button>
+      <button class="secondary-btn" onclick="logoutAdmin()">Log Out</button>
     </div>
 
     <!-- Non-Admin Login Section -->
     <div id="loginSection" class="admin-section">
-      <h2>🔐 Admin Login</h2>
-      <p style="color: #888; margin-bottom: 20px;">Are you the campaign organizer? Login to add donations</p>
-      
+      <h2>Organizer Access</h2>
+      <p class="lede">Running this campaign? Sign in to record donations.</p>
+
       <form id="loginForm">
-        <div class="form-group">
-          <label for="loginEmail">Email</label>
-          <input type="email" id="loginEmail" placeholder="organizer@example.com" required>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" placeholder="organizer@example.com" required>
+          </div>
+
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" required>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="loginPassword">Password</label>
-          <input type="password" id="loginPassword" placeholder="Enter password" required>
-        </div>
-
-        <button type="submit" style="width: 100%;">Login as Admin</button>
+        <button type="submit" class="block-btn">Sign In</button>
       </form>
     </div>
 
-    <div style="text-align: center; margin-top: 30px;">
-      <a href="/" style="color: #667eea; text-decoration: none; font-weight: 500;">← Create a New Campaign</a>
-    </div>
+    <footer class="page-foot">
+      <a href="/">← Start a new campaign</a>
+    </footer>
   </div>
 
   <script src="/js/app.js"></script>
@@ -105,14 +121,15 @@
     async function loadCampaign() {
       try {
         const response = await apiCall(`/api/campaigns/${slug}`);
-        
+
         document.getElementById('campaignTitle').textContent = response.name;
+        document.title = `${response.name} — Nasr`;
         document.getElementById('accumulatedAmount').textContent = formatCurrency(response.accumulated_amount);
         document.getElementById('targetAmount').textContent = formatCurrency(response.target_amount);
-        
+
         const progress = response.progressPercentage;
-        document.getElementById('progressFill').style.width = progress + '%';
-        document.getElementById('progressFill').textContent = Math.round(progress) + '%';
+        document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
+        document.getElementById('progressLabel').textContent = Math.round(progress) + '% funded';
 
         // Display donations
         const donationsList = document.getElementById('donationsList');
@@ -128,7 +145,7 @@
             </div>
           `).join('');
         } else {
-          donationsList.innerHTML = '<p style="color: #888; text-align: center;">No donations yet. Be the first to donate!</p>';
+          donationsList.innerHTML = '<p class="empty-note">No donations yet. Be the first to donate!</p>';
         }
       } catch (error) {
         showMessage('message', 'Failed to load campaign', 'error');
@@ -154,7 +171,7 @@
         localStorage.setItem(`admin_${slug}`, 'true');
         localStorage.setItem(`admin_email_${slug}`, email);
         localStorage.setItem(`admin_password_${slug}`, password);
-        
+
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('adminSection').style.display = 'block';
         showMessage('message', 'Login successful!', 'success');
