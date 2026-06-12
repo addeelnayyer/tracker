@@ -1,0 +1,50 @@
+name: Deploy to Firebase
+
+on:
+  push:
+    branches: [main]
+
+# Prevent overlapping deploys; let an in-progress run finish.
+concurrency:
+  group: firebase-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore non-secret .env config
+        run: printf '%s' '${{ secrets.FIREBASE_ENV_FILE }}' > .env
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        run: |
+          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "${RUNNER_TEMP}/gcp-sa-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/gcp-sa-key.json" >> "$GITHUB_ENV"
+
+      - name: Deploy to Firebase
+        run: |
+          pnpm dlx firebase-tools@latest deploy \
+            --only functions,hosting,database,storage \
+            --project addeelnayyer-nasrv0 \
+            --non-interactive \
+            --force
+
+      - name: Clean up credentials
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/gcp-sa-key.json"
