@@ -467,9 +467,7 @@
       let donations = [...allDonations];
 
       if (searchQuery) {
-        donations = donations.filter(d =>
-          d.donor_name.toLowerCase().includes(searchQuery)
-        );
+        donations = donations.filter(d => donorMatchesSearch(d, searchQuery));
       }
 
       if (sortOrder === 'highest') {

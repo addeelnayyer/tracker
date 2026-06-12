@@ -119,8 +119,19 @@ function paymentLandingState(param) {
   }
 }
 
+// Predicate behind the campaign donor-list search box. `query` is expected to
+// already be lower-cased and trimmed by the caller. A confirmed anonymous card
+// donation has a null donor_name and now appears in public reads (issues
+// #6/#7); we fall back to the displayed "Anonymous" so the filter never throws
+// on a missing name and a search for "anon" still finds those rows.
+function donorMatchesSearch(donation, query) {
+  if (!query) return true;
+  const name = (donation && donation.donor_name) || 'Anonymous';
+  return name.toLowerCase().includes(query);
+}
+
 // Exported for Node unit tests; in the browser these stay plain globals loaded
 // via <script src="/js/app.js">.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { paymentLandingState };
+  module.exports = { paymentLandingState, donorMatchesSearch };
 }
