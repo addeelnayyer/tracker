@@ -257,6 +257,19 @@ const clearOtpState = async (slug) => {
   await db.ref(`otp_codes/${slug}`).remove();
 };
 
+const getPendingSignup = async (token) => {
+  const snapshot = await db.ref(`pending_signups/${token}`).once('value');
+  return snapshot.val();
+};
+
+const setPendingSignup = async (token, data) => {
+  await db.ref(`pending_signups/${token}`).set(data);
+};
+
+const clearPendingSignup = async (token) => {
+  await db.ref(`pending_signups/${token}`).remove();
+};
+
 const deleteCampaign = async (slug, campaignId) => {
   await Promise.all([
     db.ref(`campaigns/${slug}`).remove(),
@@ -291,4 +304,7 @@ module.exports = {
   getOtpState,
   setOtpState,
   clearOtpState,
+  getPendingSignup,
+  setPendingSignup,
+  clearPendingSignup,
 };

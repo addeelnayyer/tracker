@@ -16,15 +16,19 @@ const app = require('../src/app');
 function createFakeDb(seedCampaigns = {}) {
   const campaigns = new Map(Object.entries(seedCampaigns));
   const otpStates = new Map();
-  const donations = new Map();    // campaignId → [{id, ...}]
-  const bankDetails = new Map();  // campaignId → [{id, ...}]
-  const documents = new Map();    // campaignId → [{id, ...}]
+  const donations = new Map();       // campaignId → [{id, ...}]
+  const bankDetails = new Map();     // campaignId → [{id, ...}]
+  const documents = new Map();       // campaignId → [{id, ...}]
+  const pendingSignups = new Map();  // token → {name, slug, ...}
   let seq = 0;
   const nextId = (prefix) => `${prefix}-${++seq}`;
 
   return {
     async getCampaign(slug) {
       return campaigns.get(slug) ?? null;
+    },
+    async setCampaign(slug, data) {
+      campaigns.set(slug, { ...data });
     },
     async getOtpState(slug) {
       return otpStates.get(slug) ?? null;
@@ -34,6 +38,20 @@ function createFakeDb(seedCampaigns = {}) {
     },
     async clearOtpState(slug) {
       otpStates.delete(slug);
+    },
+
+    // ── Pending signups ──
+    async getPendingSignup(token) {
+      return pendingSignups.get(token) ?? null;
+    },
+    async setPendingSignup(token, data) {
+      pendingSignups.set(token, { ...data });
+    },
+    async clearPendingSignup(token) {
+      pendingSignups.delete(token);
+    },
+    _getPendingSignup(token) {
+      return pendingSignups.get(token) ?? null;
     },
 
     // ── Donations ──
@@ -528,5 +546,158 @@ describe('Session-status endpoint', () => {
       .set('Cookie', cookie);
     assert.equal(res.status, 200);
     assert.equal(res.body.authenticated, false);
+  });
+});
+
+describe('OTP-verified campaign creation', () => {
+  const NEW_SLUG = 'new-campaign';
+  const CREATOR_EMAIL = 'creator@example.com';
+  const CREATION_FIELDS = {
+    name: 'New Campaign',
+    slug: NEW_SLUG,
+    targetAmount: 5000,
+    currency: 'USD',
+    email: CREATOR_EMAIL,
+  };
+
+  let fakeDb;
+  let fakeEmail;
+
+  beforeEach(() => {
+    fakeDb = createFakeDb({});
+    fakeEmail = createFakeEmail();
+    app.locals.firebase = fakeDb;
+    app.locals.email = fakeEmail;
+  });
+
+  test('POST /api/campaigns without password stores pending signup and emails a code', async () => {
+    const res = await request(app)
+      .post('/api/campaigns')
+      .send(CREATION_FIELDS);
+
+    assert.equal(res.status, 200);
+    assert.ok(res.body.token, 'should return a token');
+    assert.equal(fakeEmail.callCount, 1, 'should send one email');
+    assert.match(fakeEmail.lastCode, /^\d{6}$/, 'code must be 6 digits');
+  });
+
+  test('POST /api/campaigns does NOT create a campaign record', async () => {
+    await request(app).post('/api/campaigns').send(CREATION_FIELDS);
+
+    const campaign = await fakeDb.getCampaign(NEW_SLUG);
+    assert.equal(campaign, null, 'campaign must not exist before confirmation');
+  });
+
+  test('POST /api/campaigns with a password field ignores it and succeeds', async () => {
+    const res = await request(app)
+      .post('/api/campaigns')
+      .send({ ...CREATION_FIELDS, password: 'ShouldBeIgnored1' });
+
+    assert.equal(res.status, 200);
+    assert.ok(res.body.token);
+  });
+
+  test('POST /api/campaigns without required fields returns 400', async () => {
+    const res = await request(app)
+      .post('/api/campaigns')
+      .send({ name: 'Incomplete' });
+
+    assert.equal(res.status, 400);
+  });
+
+  test('confirm with correct code materializes campaign and sets session cookie', async () => {
+    const startRes = await request(app)
+      .post('/api/campaigns')
+      .send(CREATION_FIELDS);
+
+    const { token } = startRes.body;
+    const code = fakeEmail.lastCode;
+
+    const confirmRes = await request(app)
+      .post('/api/campaigns/confirm')
+      .send({ token, code });
+
+    assert.equal(confirmRes.status, 200);
+    assert.equal(confirmRes.body.success, true);
+    assert.equal(confirmRes.body.slug, NEW_SLUG);
+
+    const cookies = confirmRes.headers['set-cookie'] ?? [];
+    assert.ok(cookies.some(c => c.startsWith('nasr_session=')), 'should set nasr_session cookie');
+
+    const campaign = await fakeDb.getCampaign(NEW_SLUG);
+    assert.ok(campaign, 'campaign should exist after confirmation');
+    assert.equal(campaign.name, 'New Campaign');
+    assert.equal(campaign.email, CREATOR_EMAIL);
+  });
+
+  test('confirm with correct code logs creator in (session authorizes donations)', async () => {
+    const startRes = await request(app)
+      .post('/api/campaigns')
+      .send(CREATION_FIELDS);
+
+    const confirmRes = await request(app)
+      .post('/api/campaigns/confirm')
+      .send({ token: startRes.body.token, code: fakeEmail.lastCode });
+
+    const sessionCookie = confirmRes.headers['set-cookie'].find(c => c.startsWith('nasr_session='));
+    const cookieValue = sessionCookie.split(';')[0];
+
+    const donRes = await request(app)
+      .post(`/api/donations/${NEW_SLUG}`)
+      .set('Cookie', cookieValue)
+      .send({ donorName: 'Bob', amount: '100', timestamp: new Date().toISOString() });
+
+    assert.equal(donRes.status, 200);
+    assert.equal(donRes.body.success, true);
+  });
+
+  test('confirm with wrong code returns 400 and does not create campaign', async () => {
+    const startRes = await request(app)
+      .post('/api/campaigns')
+      .send(CREATION_FIELDS);
+
+    const confirmRes = await request(app)
+      .post('/api/campaigns/confirm')
+      .send({ token: startRes.body.token, code: '000000' });
+
+    assert.equal(confirmRes.status, 400);
+    assert.equal(confirmRes.body.error, 'Invalid code');
+    assert.equal(await fakeDb.getCampaign(NEW_SLUG), null);
+  });
+
+  test('confirm with expired token returns 400', async () => {
+    const token = 'fake-expired-token';
+    await fakeDb.setPendingSignup(token, {
+      ...CREATION_FIELDS,
+      codeHash: 'doesnotmatter',
+      expiresAt: Date.now() - 1000,
+      attemptCount: 0,
+    });
+
+    const confirmRes = await request(app)
+      .post('/api/campaigns/confirm')
+      .send({ token, code: '123456' });
+
+    assert.equal(confirmRes.status, 400);
+    assert.match(confirmRes.body.error, /expired/i);
+  });
+
+  test('confirm when slug taken at materialization returns 409', async () => {
+    // Pre-create a real campaign with the same slug
+    await fakeDb.setCampaign(NEW_SLUG, {
+      id: 'existing-id', slug: NEW_SLUG, name: 'Existing', email: 'other@example.com',
+      target_amount: 1000, currency: 'USD', accumulated_amount: 0, created_at: new Date().toISOString(),
+    });
+
+    const startRes = await request(app)
+      .post('/api/campaigns')
+      .send(CREATION_FIELDS);
+
+    const confirmRes = await request(app)
+      .post('/api/campaigns/confirm')
+      .send({ token: startRes.body.token, code: fakeEmail.lastCode });
+
+    assert.equal(confirmRes.status, 409);
+    assert.match(confirmRes.body.error, /slug/i);
   });
 });

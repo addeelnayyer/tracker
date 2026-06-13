@@ -68,23 +68,20 @@
       <div class="form-group">
         <label for="email">Organizer Email</label>
         <input type="email" id="email" name="email" placeholder="organizer@example.com" required>
-        <small class="hint">You'll use this to manage the campaign.</small>
+        <small class="hint">A verification code will be sent here. This email is your only way back in.</small>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" placeholder="••••••••" required>
-        </div>
+      <button type="submit" class="block-btn">Send Verification Code</button>
+    </form>
 
-        <div class="form-group">
-          <label for="confirmPassword">Confirm Password</label>
-          <input type="password" id="confirmPassword" name="confirmPassword" placeholder="••••••••" required>
-        </div>
+    <form id="confirmForm" style="display:none">
+      <p class="lede">Enter the 6-digit code sent to your email to create your campaign.</p>
+      <div class="form-group">
+        <label for="otpCode">Verification Code</label>
+        <input type="text" id="otpCode" name="otpCode" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
       </div>
-      <small class="hint" style="margin-top: -12px; margin-bottom: 22px;">At least 8 characters, with an uppercase letter, a lowercase letter, and a number.</small>
-
       <button type="submit" class="block-btn">Create Campaign</button>
+      <button type="button" id="backToForm" class="secondary-btn" style="margin-top:8px">← Start over</button>
     </form>
 
     <footer class="page-foot">
@@ -94,6 +91,9 @@
 
   <script src="/js/app.js"></script>
   <script>
+    let pendingToken = null;
+    let pendingSlug = null;
+
     document.getElementById('campaignForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -102,27 +102,9 @@
       const targetAmount = parseFloat(document.getElementById('targetAmount').value);
       const currency = document.getElementById('currency').value;
       const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const confirmPassword = document.getElementById('confirmPassword').value;
 
-      // Validation
-      if (!name || !slug || !targetAmount || !email || !password) {
+      if (!name || !slug || !targetAmount || !email) {
         showMessage('message', 'All fields are required', 'error');
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        showMessage('message', 'Passwords do not match', 'error');
-        return;
-      }
-
-      if (password.length < 8) {
-        showMessage('message', 'Password must be at least 8 characters', 'error');
-        return;
-      }
-
-      if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-        showMessage('message', 'Password must contain uppercase, lowercase, and numbers', 'error');
         return;
       }
 
@@ -142,24 +124,38 @@
       }
 
       try {
-        const response = await apiCall('/api/campaigns', 'POST', {
-          name,
-          slug,
-          targetAmount,
-          currency,
-          email,
-          password
-        });
-
-        if (response.success) {
-          showMessage('message', `Campaign created! Redirecting to ${slug}...`, 'success');
-          setTimeout(() => {
-            window.location.href = `/campaign/${slug}`;
-          }, 2000);
-        }
+        const response = await apiCall('/api/campaigns', 'POST', { name, slug, targetAmount, currency, email });
+        pendingToken = response.token;
+        pendingSlug = slug;
+        showMessage('message', 'Check your email for a 6-digit code.', 'success');
+        document.getElementById('campaignForm').style.display = 'none';
+        document.getElementById('confirmForm').style.display = '';
+        document.getElementById('otpCode').focus();
       } catch (error) {
-        showMessage('message', error.message || 'Failed to create campaign', 'error');
+        showMessage('message', error.message || 'Failed to start campaign creation', 'error');
       }
+    });
+
+    document.getElementById('confirmForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('otpCode').value.trim();
+
+      try {
+        const response = await apiCall('/api/campaigns/confirm', 'POST', { token: pendingToken, code });
+        showMessage('message', `Campaign created! Redirecting…`, 'success');
+        setTimeout(() => { window.location.href = `/campaign/${response.slug}`; }, 1500);
+      } catch (error) {
+        showMessage('message', error.message || 'Invalid or expired code', 'error');
+      }
+    });
+
+    document.getElementById('backToForm').addEventListener('click', () => {
+      pendingToken = null;
+      pendingSlug = null;
+      document.getElementById('confirmForm').style.display = 'none';
+      document.getElementById('campaignForm').style.display = '';
+      document.getElementById('otpCode').value = '';
+      showMessage('message', '', '');
     });
 
     // Auto-generate slug from campaign name
