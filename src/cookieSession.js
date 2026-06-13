@@ -2,10 +2,20 @@
 
 const crypto = require('crypto');
 
-const COOKIE_NAME = 'nasr_session';
+// Must be exactly `__session`: Firebase Hosting strips every cookie except this
+// one before forwarding requests to (and responses from) the function.
+const COOKIE_NAME = '__session';
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 
-const secret = () => process.env.COOKIE_SECRET || 'nasr-dev-secret-change-in-production';
+const DEV_SECRET = 'nasr-dev-secret-change-in-production';
+
+// Fail loudly in production rather than silently signing sessions with the
+// public dev fallback (which would make them forgeable).
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET must be set in production');
+}
+
+const secret = () => process.env.SESSION_SECRET || DEV_SECRET;
 
 function sign(payload) {
   const data = Buffer.from(JSON.stringify(payload)).toString('base64');
