@@ -1,16 +1,135 @@
+'use strict';
+
+const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const firebase = require('../firebase');
+const cookieSession = require('../cookieSession');
 
-// Verify password
-const verifyPassword = (password, hash) => {
-  return bcrypt.compareSync(password, hash);
-};
+// ─── OTP helpers ──────────────────────────────────────────────────────────────
 
-// Verify campaign credentials
+const NEUTRAL_MSG = { message: 'If that address is the organizer, a code has been sent.' };
+const OTP_TTL_MS = 10 * 60 * 1000;
+const RESEND_COOLDOWN_MS = 60 * 1000;
+const MAX_SENDS_PER_HOUR = 5;
+const MAX_VERIFY_ATTEMPTS = 5;
+const HOUR_MS = 60 * 60 * 1000;
+
+function generateOtp() {
+  return String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0');
+}
+
+function hashOtp(code) {
+  return crypto.createHash('sha256').update(String(code)).digest('hex');
+}
+
+// ─── OTP request ──────────────────────────────────────────────────────────────
+
+router.post('/otp/request', async (req, res) => {
+  try {
+    const { firebase, email } = req.app.locals;
+    const { campaignSlug, email: submittedEmail } = req.body;
+
+    if (!campaignSlug || !submittedEmail) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const campaign = await firebase.getCampaign(campaignSlug);
+
+    // Always respond neutrally — never reveal whether campaign or email matched
+    if (!campaign || campaign.email !== submittedEmail) {
+      return res.json(NEUTRAL_MSG);
+    }
+
+    const now = Date.now();
+    const state = (await firebase.getOtpState(campaignSlug)) || {};
+
+    if (state.lastSentAt && now - state.lastSentAt < RESEND_COOLDOWN_MS) {
+      return res.status(429).json(NEUTRAL_MSG);
+    }
+
+    const stillSameHour = state.hourStart && now - state.hourStart < HOUR_MS;
+    const hourStart = stillSameHour ? state.hourStart : now;
+    const sendsThisHour = stillSameHour ? (state.sendsThisHour || 0) : 0;
+
+    if (sendsThisHour >= MAX_SENDS_PER_HOUR) {
+      return res.status(429).json(NEUTRAL_MSG);
+    }
+
+    const code = generateOtp();
+    await firebase.setOtpState(campaignSlug, {
+      codeHash: hashOtp(code),
+      expiresAt: now + OTP_TTL_MS,
+      attemptCount: 0,
+      lastSentAt: now,
+      sendsThisHour: sendsThisHour + 1,
+      hourStart,
+    });
+
+    await email.sendOtp(submittedEmail, code);
+
+    res.json(NEUTRAL_MSG);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── OTP verify ───────────────────────────────────────────────────────────────
+
+router.post('/otp/verify', async (req, res) => {
+  try {
+    const { firebase } = req.app.locals;
+    const { campaignSlug, code } = req.body;
+
+    if (!campaignSlug || code === undefined) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const [campaign, state] = await Promise.all([
+      firebase.getCampaign(campaignSlug),
+      firebase.getOtpState(campaignSlug),
+    ]);
+
+    if (!campaign) {
+      return res.status(400).json({ error: 'Invalid request' });
+    }
+
+    if (!state || !state.codeHash || Date.now() > state.expiresAt) {
+      return res.status(400).json({ error: 'Code expired or not found' });
+    }
+
+    const submitted = hashOtp(code);
+    const stored = state.codeHash;
+    // Both are 64-char hex strings; timingSafeEqual prevents timing leaks
+    const match = crypto.timingSafeEqual(Buffer.from(submitted), Buffer.from(stored));
+
+    if (!match) {
+      const attempts = (state.attemptCount || 0) + 1;
+      if (attempts >= MAX_VERIFY_ATTEMPTS) {
+        await firebase.clearOtpState(campaignSlug);
+        return res.status(400).json({ error: 'Too many failed attempts, request a new code' });
+      }
+      await firebase.setOtpState(campaignSlug, { ...state, attemptCount: attempts });
+      return res.status(400).json({ error: 'Invalid code' });
+    }
+
+    await firebase.clearOtpState(campaignSlug);
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Legacy password endpoints (removed in #15, kept until then) ──────────────
+
+const verifyPassword = (password, hash) => bcrypt.compareSync(password, hash);
+
 router.post('/verify', async (req, res) => {
   try {
+    const firebase = req.app.locals.firebase;
     const { campaignSlug, email, password } = req.body;
 
     if (!campaignSlug || !email || !password) {
@@ -27,7 +146,6 @@ router.post('/verify', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Set session
     req.session.campaignId = campaign.id;
     req.session.campaignSlug = campaignSlug;
 
@@ -40,9 +158,9 @@ router.post('/verify', async (req, res) => {
 
 const MIN_PASSWORD_LENGTH = 8;
 
-// Change password (requires the current password)
 router.post('/change-password', async (req, res) => {
   try {
+    const firebase = req.app.locals.firebase;
     const { campaignSlug, email, password, newPassword } = req.body;
 
     if (!campaignSlug || !email || !password || !newPassword) {
@@ -72,10 +190,9 @@ router.post('/change-password', async (req, res) => {
   }
 });
 
-// Reset password when locked out — gated only by the campaign email, the one
-// ownership factor this app has (intentionally weak; see "Forgot password?").
 router.post('/reset-password', async (req, res) => {
   try {
+    const firebase = req.app.locals.firebase;
     const { campaignSlug, email, newPassword } = req.body;
 
     if (!campaignSlug || !email || !newPassword) {
@@ -105,14 +222,16 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// Logout
 router.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Logout failed' });
-    }
+  res.clearCookie(cookieSession.COOKIE_NAME);
+  if (req.session) {
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json({ error: 'Logout failed' });
+      res.json({ success: true, message: 'Logged out successfully' });
+    });
+  } else {
     res.json({ success: true, message: 'Logged out successfully' });
-  });
+  }
 });
 
 module.exports = router;

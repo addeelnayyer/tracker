@@ -1,3 +1,9 @@
+// In test mode skip Firebase initialization entirely — app.locals.firebase is injected by tests
+if (process.env.NASR_TEST === '1') {
+  module.exports = {};
+  return; // exits the CommonJS module wrapper
+}
+
 const admin = require('firebase-admin');
 require('dotenv').config({ path: '.env.local' }); // secrets for local dev
 require('dotenv').config();                        // non-sensitive config
@@ -238,6 +244,19 @@ const deleteBankDetail = async (campaignId, bankDetailId) => {
   await db.ref(`bank_details/${campaignId}/${bankDetailId}`).remove();
 };
 
+const getOtpState = async (slug) => {
+  const snapshot = await db.ref(`otp_codes/${slug}`).once('value');
+  return snapshot.val();
+};
+
+const setOtpState = async (slug, state) => {
+  await db.ref(`otp_codes/${slug}`).set(state);
+};
+
+const clearOtpState = async (slug) => {
+  await db.ref(`otp_codes/${slug}`).remove();
+};
+
 const deleteCampaign = async (slug, campaignId) => {
   await Promise.all([
     db.ref(`campaigns/${slug}`).remove(),
@@ -268,5 +287,8 @@ module.exports = {
   deleteBankDetail,
   deleteCampaign,
   uploadFile,
-  deleteFile
+  deleteFile,
+  getOtpState,
+  setOtpState,
+  clearOtpState,
 };

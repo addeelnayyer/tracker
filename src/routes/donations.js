@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const firebase = require('../firebase');
+const cookieSession = require('../cookieSession');
 
 const verifyPassword = (password, hash) => bcrypt.compareSync(password, hash);
 
@@ -16,20 +17,26 @@ const proofUpload = multer({
   }
 });
 
-// Add a donation (requires authentication)
+// Add a donation — gated on the session cookie established by OTP login
 router.post('/:campaignSlug', async (req, res) => {
   try {
     const { campaignSlug } = req.params;
-    const { donorName, amount, timestamp, email, password } = req.body;
+    const fb = req.app.locals.firebase;
 
-    if (!donorName || !amount || !timestamp || !email || !password) {
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== campaignSlug) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { donorName, amount, timestamp } = req.body;
+    if (!donorName || !amount || !timestamp) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
-    const campaign = await firebase.getCampaign(campaignSlug);
+    const campaign = await fb.getCampaign(campaignSlug);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const donationAmount = parseFloat(amount);
@@ -37,12 +44,15 @@ router.post('/:campaignSlug', async (req, res) => {
       donor_name: donorName,
       amount: donationAmount,
       timestamp: new Date(timestamp).toISOString(),
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
 
-    const donationId = await firebase.addDonation(campaign.id, donationData);
-    const newAccumulatedAmount = campaign.accumulated_amount + donationAmount;
-    await firebase.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
+    const donationId = await fb.addDonation(campaign.id, donationData);
+    const newAccumulatedAmount = (campaign.accumulated_amount || 0) + donationAmount;
+    await fb.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
+
+    // Rolling-renew the session
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
 
     res.json({ success: true, donationId });
   } catch (error) {

@@ -2,9 +2,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 const express = require('express');
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const session = require('express-session');
 const firebase = require('./firebase');
+const email = require('./email');
 const { siteMeta, campaignMeta } = require('./meta');
 const campaignRoutes = require('./routes/campaigns');
 const donationRoutes = require('./routes/donations');
@@ -27,6 +29,7 @@ if (!process.env.K_SERVICE) {
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 }
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
 
 const cssHash = crypto
@@ -48,6 +51,10 @@ app.use(session({
 app.set('view engine', 'html');
 app.engine('html', require('ejs').renderFile);
 app.set('views', path.join(__dirname, '../views'));
+
+// Inject dependencies so routes and tests can override them
+app.locals.firebase = firebase;
+app.locals.email = email;
 
 // Routes
 app.use('/api/campaigns', campaignRoutes);
