@@ -549,6 +549,38 @@ describe('Session-status endpoint', () => {
   });
 });
 
+describe('Dead password endpoints removed', () => {
+  // Seed a real campaign so legacy handlers would respond with 401, not 404.
+  // After the endpoints are deleted, Express returns 404 for unknown routes.
+  const SEED = { 'test-slug': { id: 'cmp-1', slug: 'test-slug', email: 'owner@test.com', password_hash: '$2a$10$placeholder' } };
+
+  beforeEach(() => {
+    app.locals.firebase = createFakeDb(SEED);
+    app.locals.email = createFakeEmail();
+  });
+
+  test('POST /api/auth/verify returns 404', async () => {
+    const res = await request(app)
+      .post('/api/auth/verify')
+      .send({ campaignSlug: 'test-slug', email: 'owner@test.com', password: 'wrongpassword' });
+    assert.equal(res.status, 404);
+  });
+
+  test('POST /api/auth/change-password returns 404', async () => {
+    const res = await request(app)
+      .post('/api/auth/change-password')
+      .send({ campaignSlug: 'test-slug', email: 'owner@test.com', password: 'old', newPassword: 'new12345' });
+    assert.equal(res.status, 404);
+  });
+
+  test('POST /api/auth/reset-password returns 404', async () => {
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .send({ campaignSlug: 'test-slug', email: 'owner@test.com', newPassword: 'new12345' });
+    assert.equal(res.status, 404);
+  });
+});
+
 describe('OTP-verified campaign creation', () => {
   const NEW_SLUG = 'new-campaign';
   const CREATOR_EMAIL = 'creator@example.com';

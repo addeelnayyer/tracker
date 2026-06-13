@@ -3,7 +3,6 @@
 const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
 const cookieSession = require('../cookieSession');
 
 // ─── OTP helpers ──────────────────────────────────────────────────────────────
@@ -135,115 +134,9 @@ router.get('/status', (req, res) => {
   return res.json({ authenticated: false });
 });
 
-// ─── Legacy password endpoints (removed in #15, kept until then) ──────────────
-
-const verifyPassword = (password, hash) => bcrypt.compareSync(password, hash);
-
-router.post('/verify', async (req, res) => {
-  try {
-    const firebase = req.app.locals.firebase;
-    const { campaignSlug, email, password } = req.body;
-
-    if (!campaignSlug || !email || !password) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const campaign = await firebase.getCampaign(campaignSlug);
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
-    }
-
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    req.session.campaignId = campaign.id;
-    req.session.campaignSlug = campaignSlug;
-
-    res.json({ success: true, message: 'Authenticated successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-const MIN_PASSWORD_LENGTH = 8;
-
-router.post('/change-password', async (req, res) => {
-  try {
-    const firebase = req.app.locals.firebase;
-    const { campaignSlug, email, password, newPassword } = req.body;
-
-    if (!campaignSlug || !email || !password || !newPassword) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    if (String(newPassword).length < MIN_PASSWORD_LENGTH) {
-      return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
-    }
-
-    const campaign = await firebase.getCampaign(campaignSlug);
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
-    }
-
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    await firebase.updateCampaignPassword(campaignSlug, bcrypt.hashSync(newPassword, 10));
-
-    res.json({ success: true, message: 'Password changed successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/reset-password', async (req, res) => {
-  try {
-    const firebase = req.app.locals.firebase;
-    const { campaignSlug, email, newPassword } = req.body;
-
-    if (!campaignSlug || !email || !newPassword) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    if (String(newPassword).length < MIN_PASSWORD_LENGTH) {
-      return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
-    }
-
-    const campaign = await firebase.getCampaign(campaignSlug);
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
-    }
-
-    if (campaign.email !== email) {
-      return res.status(401).json({ error: 'Email does not match this campaign' });
-    }
-
-    await firebase.updateCampaignPassword(campaignSlug, bcrypt.hashSync(newPassword, 10));
-
-    res.json({ success: true, message: 'Password reset successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 router.post('/logout', (req, res) => {
   res.clearCookie(cookieSession.COOKIE_NAME);
-  if (req.session) {
-    req.session.destroy((err) => {
-      if (err) return res.status(500).json({ error: 'Logout failed' });
-      res.json({ success: true, message: 'Logged out successfully' });
-    });
-  } else {
-    res.json({ success: true, message: 'Logged out successfully' });
-  }
+  res.json({ success: true });
 });
 
 module.exports = router;

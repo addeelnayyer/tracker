@@ -108,15 +108,6 @@ const addDonation = async (campaignId, donationData) => {
   }
 };
 
-const updateCampaignPassword = async (campaignSlug, passwordHash) => {
-  try {
-    await db.ref(`campaigns/${campaignSlug}/password_hash`).set(passwordHash);
-  } catch (error) {
-    console.error('Error updating campaign password:', error);
-    throw error;
-  }
-};
-
 const updateCampaignAmount = async (campaignSlug, newAmount) => {
   try {
     await db.ref(`campaigns/${campaignSlug}/accumulated_amount`).set(newAmount);
@@ -285,7 +276,6 @@ module.exports = {
   getCampaign,
   getAllCampaigns,
   setCampaign,
-  updateCampaignPassword,
   getDonations,
   addDonation,
   updateCampaignAmount,

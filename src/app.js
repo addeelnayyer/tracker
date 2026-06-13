@@ -4,7 +4,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const path = require('path');
-const session = require('express-session');
 const firebase = require('./firebase');
 const email = require('./email');
 const { siteMeta, campaignMeta } = require('./meta');
@@ -38,14 +37,6 @@ const cssHash = crypto
   .digest('hex')
   .slice(0, 8);
 app.locals.cssVersion = cssHash;
-
-// Session configuration
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 }
-}));
 
 // View engine
 app.set('view engine', 'html');
