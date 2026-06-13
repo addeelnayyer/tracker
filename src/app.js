@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+const fs = require('fs');
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -26,6 +28,13 @@ if (!process.env.K_SERVICE) {
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 }
 app.use(express.static(path.join(__dirname, '../public')));
+
+const cssHash = crypto
+  .createHash('md5')
+  .update(fs.readFileSync(path.join(__dirname, '../public/css/style.css')))
+  .digest('hex')
+  .slice(0, 8);
+app.locals.cssVersion = cssHash;
 
 // Session configuration
 app.use(session({
