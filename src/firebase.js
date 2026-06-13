@@ -50,6 +50,23 @@ const getCampaign = async (slug) => {
   }
 };
 
+// All campaigns, newest first. Used by the home register; callers are
+// responsible for stripping sensitive fields (password_hash, email) before
+// sending anything to the client.
+const getAllCampaigns = async () => {
+  try {
+    const snapshot = await db.ref('campaigns').once('value');
+    const campaigns = snapshot.val();
+    if (!campaigns) return [];
+    return Object.values(campaigns).sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    );
+  } catch (error) {
+    console.error('Error getting campaigns:', error);
+    throw error;
+  }
+};
+
 const setCampaign = async (slug, campaignData) => {
   try {
     await db.ref(`campaigns/${slug}`).set(campaignData);
@@ -234,6 +251,7 @@ module.exports = {
   getDatabase,
   getBucket,
   getCampaign,
+  getAllCampaigns,
   setCampaign,
   updateCampaignPassword,
   getDonations,

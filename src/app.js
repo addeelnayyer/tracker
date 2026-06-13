@@ -47,9 +47,52 @@ app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/bank-details', bankDetailRoutes);
 
-// Home page
-app.get('/', (req, res) => {
-  res.render('index', { og: siteMeta(req) });
+// Whole-amount currency formatting for the register cards. Mirrors meta.js's
+// formatMoney; kept local to avoid widening that module's API.
+const formatMoney = (amount, currency) => {
+  const value = Number(amount) || 0;
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: (currency || 'USD').toUpperCase(),
+      maximumFractionDigits: 0
+    }).format(value);
+  } catch {
+    return `${value.toLocaleString('en-US')} ${currency || ''}`.trim();
+  }
+};
+
+// Home page — the register: every campaign with its live ledger progress.
+// Rendered server-side so the list is crawlable and there's no empty flash.
+// A data hiccup must never blank the page: fall back to an empty register.
+app.get('/', async (req, res) => {
+  let campaigns = [];
+  try {
+    const raw = await firebase.getAllCampaigns();
+    campaigns = raw.map((c) => {
+      const target = Number(c.target_amount) || 0;
+      const raised = Number(c.accumulated_amount) || 0;
+      const pct = target > 0 ? Math.min(Math.round((raised / target) * 100), 100) : 0;
+      return {
+        slug: c.slug,
+        name: c.name,
+        currency: (c.currency || 'USD').toUpperCase(),
+        raised: formatMoney(raised, c.currency),
+        goal: formatMoney(target, c.currency),
+        pct,
+        funded: target > 0 && raised >= target,
+        created_at: c.created_at
+      };
+    });
+  } catch (error) {
+    console.error('Failed to load campaigns for the register:', error);
+  }
+  res.render('index', { og: siteMeta(req), campaigns });
+});
+
+// Start a campaign — the creation form.
+app.get('/start', (req, res) => {
+  res.render('start', { og: siteMeta(req, { title: 'Start a campaign — Nasr' }) });
 });
 
 // Campaign view page — fetch the campaign so crawlers get a real preview

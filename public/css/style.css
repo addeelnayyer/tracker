@@ -395,6 +395,273 @@ button:active {
   color: var(--pine);
 }
 
+/* ---------- Home register: new-campaign CTA ---------- */
+
+/* The call to open a campaign, set as a filing card with a gold spine —
+   echoing the bank slips and drawer so the home reads as the same ledger. */
+.new-campaign-cta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 22px 18px 26px;
+  margin-bottom: 36px;
+  background: #faf6ec;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius);
+  text-decoration: none;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.new-campaign-cta::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: repeating-linear-gradient(180deg, var(--gold) 0 8px, transparent 8px 13px);
+}
+
+.new-campaign-cta:hover,
+.new-campaign-cta:focus-visible {
+  border-color: var(--pine);
+  box-shadow: 0 14px 30px -16px rgba(20, 61, 47, 0.45);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.new-campaign-cta-mark {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1;
+  color: var(--card);
+  background: var(--pine);
+  border: 1px solid var(--pine-deep);
+  border-radius: 50%;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
+}
+
+.new-campaign-cta:hover .new-campaign-cta-mark {
+  background: var(--pine-deep);
+  transform: rotate(90deg);
+}
+
+.new-campaign-cta-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.new-campaign-cta-text strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  color: var(--pine-deep);
+}
+
+.new-campaign-cta-text small {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.new-campaign-cta-arrow {
+  flex-shrink: 0;
+  font-size: 20px;
+  color: var(--gold);
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.new-campaign-cta:hover .new-campaign-cta-arrow {
+  transform: translateX(4px);
+}
+
+/* ---------- Home register: campaign cards ---------- */
+
+.campaign-index {
+  list-style: none;
+  display: grid;
+  gap: 16px;
+}
+
+/* Each campaign rendered as a ledger entry: paper card, name in the
+   display serif, raised/goal set in tabular figures, a mini progress rule. */
+.campaign-card {
+  display: block;
+  padding: 20px 22px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--hairline-strong);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease;
+  animation: section-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.campaign-index li:nth-child(2) .campaign-card { animation-delay: 0.05s; }
+.campaign-index li:nth-child(3) .campaign-card { animation-delay: 0.10s; }
+.campaign-index li:nth-child(4) .campaign-card { animation-delay: 0.15s; }
+.campaign-index li:nth-child(5) .campaign-card { animation-delay: 0.20s; }
+.campaign-index li:nth-child(n+6) .campaign-card { animation-delay: 0.24s; }
+
+.campaign-card:hover,
+.campaign-card:focus-visible {
+  border-color: var(--hairline-strong);
+  border-left-color: var(--pine);
+  box-shadow: 0 14px 30px -18px rgba(29, 42, 36, 0.4);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.campaign-card--funded {
+  border-left-color: var(--gold);
+}
+
+.campaign-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.campaign-card-head h2 {
+  font-size: 20px;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.campaign-card-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pine);
+  background: var(--pine-wash);
+  border-radius: 99px;
+  padding: 4px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.campaign-card--funded .campaign-card-badge {
+  color: var(--gold);
+  background: rgba(176, 125, 44, 0.12);
+}
+
+.campaign-card-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.campaign-card-amount .raised {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: -0.015em;
+  color: var(--pine-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.campaign-card-amount .goal {
+  font-size: 14px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-bar--mini {
+  height: 7px;
+  margin: 0 0 14px;
+}
+
+.campaign-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.campaign-card-cur {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.campaign-card-open {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--pine);
+  transition: transform 0.2s ease;
+}
+
+.campaign-card:hover .campaign-card-open {
+  transform: translateX(3px);
+}
+
+/* ---------- Home register: empty state ---------- */
+
+.register-empty {
+  text-align: center;
+  padding: 36px 20px 40px;
+  background: #faf6ec;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--radius);
+}
+
+.register-empty-glyph {
+  display: block;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 40px;
+  color: var(--gold);
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.register-empty p {
+  font-family: var(--font-display);
+  font-size: 19px;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+
+.register-empty small {
+  font-size: 13.5px;
+  color: var(--ink-faint);
+}
+
+/* ---------- Back link ---------- */
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.back-link:hover {
+  color: var(--pine);
+}
+
 /* ---------- Bank transfer details ---------- */
 
 .bank-section { margin-top: 38px; }
