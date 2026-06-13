@@ -123,6 +123,18 @@ router.post('/otp/verify', async (req, res) => {
   }
 });
 
+// ─── Session status ───────────────────────────────────────────────────────────
+
+router.get('/status', (req, res) => {
+  const session = cookieSession.getSession(req);
+  const slug = req.query.slug;
+  if (session && session.slug === slug) {
+    cookieSession.setSessionCookie(res, { campaignId: session.campaignId, slug: session.slug });
+    return res.json({ authenticated: true });
+  }
+  return res.json({ authenticated: false });
+});
+
 // ─── Legacy password endpoints (removed in #15, kept until then) ──────────────
 
 const verifyPassword = (password, hash) => bcrypt.compareSync(password, hash);

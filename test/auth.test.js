@@ -496,3 +496,37 @@ describe('Session-gated mutation routes', () => {
     assert.equal(res.status, 401);
   });
 });
+
+describe('Session-status endpoint', () => {
+  let fakeDb;
+
+  beforeEach(() => {
+    fakeDb = createFakeDb({ [CAMPAIGN_SLUG]: { ...CAMPAIGN } });
+    app.locals.firebase = fakeDb;
+    app.locals.email = createFakeEmail();
+  });
+
+  test('status without cookie returns { authenticated: false }', async () => {
+    const res = await request(app).get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.authenticated, false);
+  });
+
+  test('status with valid session cookie for matching slug returns { authenticated: true }', async () => {
+    const cookie = makeSessionCookie(CAMPAIGN.id, CAMPAIGN_SLUG);
+    const res = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', cookie);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.authenticated, true);
+  });
+
+  test('status with cookie for different slug returns { authenticated: false }', async () => {
+    const cookie = makeSessionCookie('other-id', 'other-slug');
+    const res = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', cookie);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.authenticated, false);
+  });
+});
