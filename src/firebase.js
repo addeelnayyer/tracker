@@ -217,6 +217,19 @@ const addBankDetail = async (campaignId, bankDetailData) => {
   return bankDetailRef.key;
 };
 
+const updateBankDetailOrders = async (campaignId, orderedIds) => {
+  try {
+    const updates = {};
+    orderedIds.forEach((bankDetailId, index) => {
+      updates[`bank_details/${campaignId}/${bankDetailId}/display_order`] = index;
+    });
+    await db.ref().update(updates);
+  } catch (error) {
+    console.error('Error updating bank detail order:', error);
+    throw error;
+  }
+};
+
 const deleteBankDetail = async (campaignId, bankDetailId) => {
   await db.ref(`bank_details/${campaignId}/${bankDetailId}`).remove();
 };
@@ -247,6 +260,7 @@ module.exports = {
   deleteDocument,
   getBankDetails,
   addBankDetail,
+  updateBankDetailOrders,
   deleteBankDetail,
   deleteCampaign,
   uploadFile,

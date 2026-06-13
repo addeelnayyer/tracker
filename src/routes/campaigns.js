@@ -95,6 +95,11 @@ router.get('/:slug', async (req, res) => {
         }, '')
       : null;
 
+    // Bank accounts without display_order predate reordering; their creation
+    // time slots them between reordered slips (small indices) and fresh adds
+    const bankOrder = (bank) =>
+      typeof bank.display_order === 'number' ? bank.display_order : Date.parse(bank.created_at) || 0;
+
     // Return campaign data without sensitive information (password_hash, email)
     res.json({
       id: campaign.id,
@@ -107,7 +112,7 @@ router.get('/:slug', async (req, res) => {
       last_donation_at: lastDonationAt,
       donations: pagedDonations,
       donations_count: sortedDonations.length,
-      bank_details: bankDetails.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+      bank_details: bankDetails.sort((a, b) => bankOrder(a) - bankOrder(b)),
       progressPercentage: Math.min(progressPercentage, 100)
     });
   } catch (error) {
