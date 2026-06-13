@@ -12,11 +12,15 @@
 <body>
   <div class="container">
     <header class="brand">
-      <a class="brand-mark" href="/">Nasr<em>.</em></a>
+      <a class="brand-mark" href="/"><img src="/images/logo-mark.svg" alt="" width="22" height="22"> Nasr<em>.</em></a>
       <span class="brand-tag">Campaign Ledger</span>
     </header>
 
     <div id="message"></div>
+
+    <!-- Donor return banner (Safepay redirect) — pending-aware success /
+         not-charged cancel state. Populated client-side from ?payment=. -->
+    <div class="payment-landing" id="paymentLanding" hidden></div>
 
     <!-- Campaign Header -->
     <div class="campaign-header" id="campaignHeader">
@@ -39,17 +43,40 @@
       </div>
     </div>
 
+    <!-- Donate by Card (Safepay) — primary public donation CTA -->
+    <div class="card-donate-section" id="cardDonateSection">
+      <div class="section-label">Donate by Card</div>
+      <form id="cardDonateForm">
+        <div class="form-group">
+          <label for="cardAmount">Amount (PKR)</label>
+          <input type="number" id="cardAmount" min="1000" max="1000000" step="0.01" placeholder="1000" required>
+        </div>
+        <div class="form-group">
+          <label for="cardDonorName">Name <span class="optional-hint">(optional)</span></label>
+          <input type="text" id="cardDonorName" maxlength="140" placeholder="Leave blank to give anonymously">
+        </div>
+        <div class="form-group">
+          <label for="cardDonorEmail">Email</label>
+          <input type="email" id="cardDonorEmail" placeholder="you@example.com" required>
+        </div>
+        <div id="cardDonateMessage"></div>
+        <button type="submit" class="block-btn" id="cardDonateBtn">Donate by Card</button>
+      </form>
+    </div>
+
+    <!-- Bank transfer is the secondary donation path, demoted beneath the
+         primary "Donate by Card" CTA (#7). -->
+    <div class="bank-section bank-section--secondary" id="bankSection" style="display: none;">
+      <div class="section-label section-label--soft">Or transfer directly</div>
+      <p class="bank-section-note">Prefer a bank transfer? Send your donation to any of the accounts below and share your receipt with the organizer.</p>
+      <div class="bank-list" id="bankList"></div>
+    </div>
+
     <!-- Documents Gallery -->
     <div class="documents-section" id="documentsSection" style="display: none;">
       <div class="section-label">Campaign Documents</div>
       <p class="doc-reorder-hint" id="docReorderHint" style="display: none;">Drag tiles to set the order donors see.</p>
       <div class="doc-gallery" id="docGallery"></div>
-    </div>
-
-    <!-- Bank Transfer Details -->
-    <div class="bank-section" id="bankSection" style="display: none;">
-      <div class="section-label">Bank Transfer Details</div>
-      <div class="bank-list" id="bankList"></div>
     </div>
 
     <!-- Donations List -->
@@ -321,6 +348,31 @@
       }
     }
 
+    // ==================== Donate by Card (Safepay) ====================
+
+    // Kick off a card donation: create a pending donation + Safepay session
+    // server-side, then hand the donor to Safepay's hosted checkout. The signed
+    // webhook (not this redirect) is what actually confirms the donation.
+    const cardDonateForm = document.getElementById('cardDonateForm');
+    if (cardDonateForm) {
+      cardDonateForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('cardDonateBtn');
+        btn.disabled = true;
+        try {
+          const { redirectUrl } = await apiCall(`/api/payments/${slug}/checkout`, 'POST', {
+            amount: document.getElementById('cardAmount').value,
+            donorName: document.getElementById('cardDonorName').value.trim(),
+            email: document.getElementById('cardDonorEmail').value.trim(),
+          });
+          window.location.assign(redirectUrl);
+        } catch (err) {
+          showMessage('cardDonateMessage', err.message || 'Could not start the payment', 'error');
+          btn.disabled = false;
+        }
+      });
+    }
+
     // ==================== Load campaign ====================
 
     async function loadCampaign() {
@@ -383,15 +435,23 @@
         </label>`;
       }
 
+      // A card donation is real money that moved through Safepay: its amount is
+      // immutable and it can't be deleted (issue #8). So the organizer gets a
+      // name-only Edit and no Delete affordance; manual donations keep both.
+      const isCard = donation.payment_method === 'card';
       const adminActions = isAdmin ? `
         <button class="edit-btn" type="button" data-edit-id="${donation.id}">Edit</button>
-        <button class="delete-btn" type="button" data-delete-id="${donation.id}">Delete</button>
+        ${isCard ? '' : `<button class="delete-btn" type="button" data-delete-id="${donation.id}">Delete</button>`}
       ` : '';
+
+      const cardTag = isCard
+        ? '<span class="donation-card-tag" title="Paid by card via Safepay">Card</span>'
+        : '';
 
       return `
         <div class="donation-item${isAdmin ? ' donation-item--admin' : ''}" data-donation-id="${donation.id}">
           <div class="donation-info">
-            <h3>${escapeHtml(donation.donor_name)}</h3>
+            <h3>${escapeHtml(donation.donor_name || 'Anonymous')}${cardTag}</h3>
             <p>${formatDate(donation.timestamp)}</p>
           </div>
           <div class="donation-item-actions">
@@ -407,9 +467,7 @@
       let donations = [...allDonations];
 
       if (searchQuery) {
-        donations = donations.filter(d =>
-          d.donor_name.toLowerCase().includes(searchQuery)
-        );
+        donations = donations.filter(d => donorMatchesSearch(d, searchQuery));
       }
 
       if (sortOrder === 'highest') {
@@ -596,20 +654,26 @@
       const item = donationsList.querySelector(`.donation-item[data-donation-id="${donationId}"]`);
       if (!item) return;
 
+      // A card donation's amount and confirmation date are immutable real-money
+      // facts (#8) — show them but lock them so only the display name is
+      // editable. Manual donations stay fully editable.
+      const isCard = donation.payment_method === 'card';
+      const lockedAttr = isCard ? 'disabled' : '';
+
       item.innerHTML = `
         <form class="donation-edit-form" data-edit-id="${donationId}">
           <div class="donation-edit-fields">
             <div class="form-group" style="margin-bottom:0;">
               <label>Donor Name</label>
-              <input type="text" class="donation-edit-name" value="${escapeHtml(donation.donor_name)}" required>
+              <input type="text" class="donation-edit-name" value="${escapeHtml(donation.donor_name || '')}" required>
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label>Amount</label>
-              <input type="number" class="donation-edit-amount" value="${donation.amount}" step="0.01" min="0" required>
+              <label>Amount${isCard ? ' (locked — paid by card)' : ''}</label>
+              <input type="number" class="donation-edit-amount" value="${donation.amount}" step="0.01" min="0" required ${lockedAttr}>
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label>Date &amp; Time</label>
-              <input type="datetime-local" class="donation-edit-date" value="${toLocalDatetimeValue(donation.timestamp)}" required>
+              <label>Date &amp; Time${isCard ? ' (locked)' : ''}</label>
+              <input type="datetime-local" class="donation-edit-date" value="${toLocalDatetimeValue(donation.timestamp)}" required ${lockedAttr}>
             </div>
           </div>
           <div class="donation-edit-btns">
@@ -1314,12 +1378,58 @@
       }
     };
 
+    // ==================== Donor return banner (Safepay redirect) ====================
+
+    // Render the pending-aware success / not-charged cancel banner from the
+    // ?payment= param Safepay sends the donor back with. The redirect is NEVER
+    // treated as confirmation — only the signed webhook confirms the donation —
+    // so a success here means "received, confirming", not "confirmed".
+    function renderPaymentLanding() {
+      // Safepay appends ?tracker=... to the success redirect URL (not a ?payment=
+      // param). Treat the presence of a tracker token as a successful payment
+      // return; ?payment=cancelled still comes through on the cancel URL.
+      const paymentParam = getQueryParam('payment');
+      const trackerParam = getQueryParam('tracker');
+      const param = paymentParam || (trackerParam ? 'success' : null);
+      const state = paymentLandingState(param);
+      const el = document.getElementById('paymentLanding');
+      if (!state) { el.hidden = true; return; }
+
+      el.className = `payment-landing payment-landing--${state.type}`;
+      el.hidden = false;
+      el.innerHTML = `
+        <button class="payment-landing-close" type="button" aria-label="Dismiss">&#10005;</button>
+        <h2 class="payment-landing-title">${escapeHtml(state.title)}</h2>
+        <p class="payment-landing-msg">${escapeHtml(state.message)}</p>
+      `;
+      el.querySelector('.payment-landing-close').addEventListener('click', () => {
+        el.hidden = true;
+      });
+
+      // Drop ?payment= so a refresh or shared link doesn't re-trigger the banner,
+      // without a full reload.
+      if (window.history && window.history.replaceState) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payment');
+        url.searchParams.delete('tracker');
+        window.history.replaceState({}, document.title, url.pathname + (url.search || '') + url.hash);
+      }
+
+      // On a successful return the confirming webhook may land within seconds —
+      // poll a few extra times so the freshly confirmed donation surfaces fast
+      // instead of waiting on the 30s heartbeat.
+      if (param === 'success') {
+        [2000, 5000, 10000, 20000].forEach((delay) => setTimeout(loadCampaign, delay));
+      }
+    }
+
     // ==================== Init ====================
 
     if (localStorage.getItem(`admin_${slug}`) === 'true') {
       setAdminMode(true);
     }
 
+    renderPaymentLanding();
     loadCampaign();
     loadDocuments();
 

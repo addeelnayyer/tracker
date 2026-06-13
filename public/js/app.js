@@ -91,3 +91,47 @@ function getFileTypeIcon(mimeType) {
   if (mimeType.includes('presentation')) return '🎥';
   return '📎';
 }
+
+// Map the Safepay redirect `?payment=` return param to a donor-facing landing
+// banner (issue #7). The success state is deliberately PENDING-AWARE: the donor
+// redirect is never proof of payment — only the signed webhook confirms a
+// donation — so it says "received, confirming" rather than claiming the gift is
+// already confirmed. Cancel/failure both reassure the donor they weren't
+// charged. Returns null when there is no (recognised) payment param.
+function paymentLandingState(param) {
+  switch (param) {
+    case 'success':
+      return {
+        type: 'success',
+        title: 'Thank you — your payment was received',
+        message: 'We’re confirming it with the payment provider now. Your donation will appear in the ledger below as soon as it clears, usually within a minute.',
+      };
+    case 'cancelled':
+    case 'cancel':
+    case 'failed':
+      return {
+        type: 'error',
+        title: 'Your payment didn’t go through',
+        message: 'It looks like the payment was cancelled — you have not been charged. You’re welcome to try again whenever you’re ready.',
+      };
+    default:
+      return null;
+  }
+}
+
+// Predicate behind the campaign donor-list search box. `query` is expected to
+// already be lower-cased and trimmed by the caller. A confirmed anonymous card
+// donation has a null donor_name and now appears in public reads (issues
+// #6/#7); we fall back to the displayed "Anonymous" so the filter never throws
+// on a missing name and a search for "anon" still finds those rows.
+function donorMatchesSearch(donation, query) {
+  if (!query) return true;
+  const name = (donation && donation.donor_name) || 'Anonymous';
+  return name.toLowerCase().includes(query);
+}
+
+// Exported for Node unit tests; in the browser these stay plain globals loaded
+// via <script src="/js/app.js">.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { paymentLandingState, donorMatchesSearch };
+}

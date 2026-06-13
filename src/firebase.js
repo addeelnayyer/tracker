@@ -103,6 +103,71 @@ const updateCampaignAmount = async (campaignSlug, newAmount) => {
   }
 };
 
+// Atomically adjust a campaign's accumulated total by `delta` (which may be
+// negative). Uses a server-side increment so concurrent donation writes can't
+// lose an update the way a JavaScript read-modify-write of accumulated_amount
+// would — the RTDB applies the delta to whatever value is current on the server.
+const incrementCampaignAmount = async (campaignSlug, delta) => {
+  try {
+    await db
+      .ref(`campaigns/${campaignSlug}/accumulated_amount`)
+      .set(admin.database.ServerValue.increment(delta));
+  } catch (error) {
+    console.error('Error incrementing campaign amount:', error);
+    throw error;
+  }
+};
+
+// Index a Safepay tracker -> { campaignId, campaignSlug, donationId } so the
+// single global webhook endpoint can locate the pending donation by tracker id
+// alone (Safepay posts to one configured URL and doesn't know our campaign).
+const setPaymentRef = async (providerRef, ref) => {
+  try {
+    await db.ref(`payment_refs/${providerRef}`).set(ref);
+  } catch (error) {
+    console.error('Error setting payment ref:', error);
+    throw error;
+  }
+};
+
+const getPaymentRef = async (providerRef) => {
+  try {
+    const snapshot = await db.ref(`payment_refs/${providerRef}`).once('value');
+    return snapshot.val();
+  } catch (error) {
+    console.error('Error getting payment ref:', error);
+    throw error;
+  }
+};
+
+// Idempotently confirm a pending card donation and increment the campaign total
+// exactly once. The pending->confirmed flip runs inside an RTDB transaction so
+// concurrent or redelivered webhook deliveries cannot double-count: only the
+// delivery that observes `pending` performs the flip and the subsequent
+// increment; any later delivery sees `confirmed`, aborts the transaction, and is
+// a no-op. Returns { confirmed } — true only for the delivery that flipped it.
+const confirmCardDonation = async (campaignSlug, campaignId, donationId, confirmedAt) => {
+  const donationRef = db.ref(`donations/${campaignId}/${donationId}`);
+  let amountToCredit = null; // set only on the transaction run that performs the flip
+  const result = await donationRef.transaction((current) => {
+    if (!current) return current;                      // not loaded yet / vanished — re-run or no-op
+    if (current.payment_status !== 'pending') return;  // already confirmed/failed: abort (idempotent)
+    amountToCredit = current.amount;
+    return {
+      ...current,
+      payment_status: 'confirmed',
+      timestamp: confirmedAt,   // a card donation's timestamp is its confirmation time
+      confirmed_at: confirmedAt,
+    };
+  });
+
+  if (result.committed && amountToCredit != null) {
+    await incrementCampaignAmount(campaignSlug, amountToCredit);
+    return { confirmed: true };
+  }
+  return { confirmed: false };
+};
+
 const deleteDonation = async (campaignId, donationId) => {
   try {
     await db.ref(`donations/${campaignId}/${donationId}`).remove();
@@ -239,6 +304,10 @@ module.exports = {
   getDonations,
   addDonation,
   updateCampaignAmount,
+  incrementCampaignAmount,
+  setPaymentRef,
+  getPaymentRef,
+  confirmCardDonation,
   deleteDonation,
   updateDonation,
   getDocuments,

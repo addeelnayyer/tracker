@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>Your donation receipt</title>
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
+  <style>
+    /* Client-safe resets */
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    a { color: #1e5a45; }
+    .receipt-link { color: #1e5a45 !important; }
+
+    @media only screen and (max-width: 600px) {
+      .container { width: 100% !important; }
+      .px { padding-left: 24px !important; padding-right: 24px !important; }
+      .stack { display: block !important; width: 100% !important; text-align: left !important; }
+      .stack-right { text-align: left !important; padding-top: 4px !important; }
+      .amount { font-size: 34px !important; }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .bg-page { background: #0e1a15 !important; }
+      .bg-card { background: #14241d !important; }
+      .text-ink { color: #f3efe4 !important; }
+      .text-muted { color: #a7b0a8 !important; }
+      .rule { border-color: #25362e !important; }
+      .chip { background: #14302455 !important; }
+    }
+  </style>
+</head>
+<body class="bg-page" style="margin:0; padding:0; background-color:#faf6ec; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Karla,Roboto,Helvetica,Arial,sans-serif;">
+  <!-- Preheader (hidden) -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#faf6ec; opacity:0;">
+    Receipt {{receiptNumber}} — your {{amount}} donation to {{campaignName}} was received. Thank you.
+  </div>
+
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="bg-page" style="background-color:#faf6ec;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <!-- Card -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="container" style="width:600px; max-width:600px;">
+
+          <!-- Header / brand bar -->
+          <tr>
+            <td style="background-color:#143d2f; border-radius:14px 14px 0 0; padding:24px 32px;" class="px">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="left" valign="middle">
+                    <!-- Wordmark (text fallback keeps it crisp in all clients) -->
+                    <span style="font-family:Fraunces,Georgia,'Times New Roman',serif; font-size:26px; font-weight:700; letter-spacing:-0.01em; color:#faf6ec;">Nasr<span style="color:#d9a441;">.</span></span>
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="font-family:Karla,'Segoe UI',Arial,sans-serif; font-size:10px; font-weight:700; letter-spacing:0.22em; color:#8fb3a3;">CAMPAIGN&nbsp;LEDGER</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Confirmation hero -->
+          <tr>
+            <td class="bg-card px" style="background-color:#ffffff; padding:36px 32px 8px 32px;">
+              <!-- Success badge -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="chip" style="background-color:#eaf3ee; border-radius:999px;">
+                <tr>
+                  <td style="padding:6px 14px 6px 12px;">
+                    <span style="display:inline-block; vertical-align:middle; width:18px; height:18px; line-height:18px; text-align:center; background-color:#1e5a45; border-radius:999px; color:#ffffff; font-size:11px; font-weight:700;">&#10003;</span>
+                    <span class="text-ink" style="vertical-align:middle; font-family:Karla,'Segoe UI',Arial,sans-serif; font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#1e5a45; padding-left:6px;">Payment received</span>
+                  </td>
+                </tr>
+              </table>
+
+              <h1 class="text-ink" style="margin:20px 0 6px 0; font-family:Fraunces,Georgia,serif; font-size:28px; line-height:1.2; font-weight:700; color:#143d2f;">Thank you, {{donorFirstName}}.</h1>
+              <p class="text-muted" style="margin:0 0 4px 0; font-family:Karla,'Segoe UI',Arial,sans-serif; font-size:15px; line-height:1.6; color:#5f6b63;">
+                Your contribution to <strong style="color:#143d2f;">{{campaignName}}</strong> was successfully processed. This email is your official receipt — keep it for your records.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Amount -->
+          <tr>
+            <td class="bg-card px" style="background-color:#ffffff; padding:18px 32px 6px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #e7e1d2; border-radius:12px;">
+                <tr>
+                  <td align="center" style="padding:24px 16px;">
+                    <div class="text-muted" style="font-family:Karla,'Segoe UI',Arial,sans-serif; font-size:12px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#8b9189;">Amount donated</div>
+                    <div class="amount text-ink" style="font-family:Fraunces,Georgia,serif; font-size:42px; font-weight:700; color:#143d2f; line-height:1.1; padding-top:4px;">{{amount}}</div>
+                    <div class="text-muted" style="font-family:Karla,'Segoe UI',Arial,sans-serif; font-size:13px; color:#8b9189; padding-top:2px;">{{paymentMethod}} &bull; {{date}}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Order details -->
+          <tr>
+            <td class="bg-card px" style="background-color:#ffffff; padding:18px 32px 8px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-family:Karla,'Segoe UI',Arial,sans-serif; font-size:14px;">
+                <tr>
+                  <td class="text-muted" style="padding:9px 0; color:#8b9189;">Receipt number</td>
+                  <td class="text-ink" align="right" style="padding:9px 0; color:#143d2f; font-weight:700;">{{receiptNumber}}</td>
+                </tr>
+                <tr><td colspan="2" class="rule" style="border-top:1px solid #eee7d8; font-size:0; line-height:0;">&nbsp;</td></tr>
+                <tr>
+                  <td class="text-muted" style="padding:9px 0; color:#8b9189;">Campaign</td>
+                  <td class="text-ink" align="right" style="padding:9px 0; color:#143d2f; font-weight:700;">{{campaignName}}</td>
+                </tr>
+                <tr><td colspan="2" class="rule" style="border-top:1px solid #eee7d8; font-size:0; line-height:0;">&nbsp;</td></tr>
+                <tr>
+                  <td class="text-muted" style="padding:9px 0; color:#8b9189;">Donor</td>
+                  <td class="text-ink" align="right" style="padding:9px 0; color:#143d2f; font-weight:700;">{{donorName}}</td>
+                </tr>
+                <tr><td colspan="2" class="rule" style="border-top:1px solid #eee7d8; font-size:0; line-height:0;">&nbsp;</td></tr>
+                <tr>
+                  <td class="text-muted" style="padding:9px 0; color:#8b9189;">Payment method</td>
+                  <td class="text-ink" align="right" style="padding:9px 0; color:#143d2f; font-weight:700;">{{paymentMethod}}</td>
+                </tr>
+                <tr><td colspan="2" class="rule" style="border-top:1px solid #eee7d8; font-size:0; line-height:0;">&nbsp;</td></tr>
+                <tr>
+                  <td class="text-muted" style="padding:9px 0; color:#8b9189;">Date &amp; time</td>
+                  <td class="text-ink" align="right" style="padding:9px 0; color:#143d2f; font-weight:700;">{{date}}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <tr>
+            <td class="bg-card px" style="background-color:#ffffff; padding:24px 32px 12px 32px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{receiptUrl}}" style="height:48px;v-text-anchor:middle;width:300px;" arcsize="18%" stroke="f" fillcolor="#1e5a45">
+                <w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">View receipt online</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <a href="{{receiptUrl}}" style="display:inline-block; background-color:#1e5a45; color:#ffffff; font-family:Karla,'Segoe UI',Arial,sans-serif; font-size:15px; font-weight:700; text-decoration:none; padding:14px 32px; border-radius:9px;">View receipt online</a>
+                  </td>
+                </tr>
+              </table>
+              <!--<![endif]-->
+            </td>
+          </tr>
+
+          <!-- Note -->
+          <tr>
+            <td class="bg-card px" style="background-color:#ffffff; border-radius:0 0 14px 14px; padding:8px 32px 28px 32px;">
+              <p class="text-muted" style="margin:14px 0 0 0; font-family:Karla,'Segoe UI',Arial,sans-serif; font-size:13px; line-height:1.6; color:#8b9189; text-align:center;">
+                Need help with this contribution? Reply to this email or contact
+                <a href="mailto:{{supportEmail}}" class="receipt-link" style="color:#1e5a45; font-weight:700; text-decoration:none;">{{supportEmail}}</a>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td class="px" style="padding:24px 32px 8px 32px;">
+              <p class="text-muted" style="margin:0; font-family:Karla,'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.6; color:#8b9189; text-align:center;">
+                {{organizationName}} &bull; {{organizationAddress}}<br>
+                You received this receipt because a donation was made using this email address.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Card -->
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  // This is a plain JavaScript project. `npm run typecheck` runs `tsc --noEmit`
+  // to validate that every source/test file parses and to provide a single,
+  // standard gate the agent feedback loop can rely on. Deep JS type-checking
+  // (`checkJs`) is intentionally off for now so the gate is green on the
+  // existing untyped code; it can be turned on incrementally later.
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["src/**/*.js", "test/**/*.js", "functions/**/*.js", "scripts/**/*.js"],
+  "exclude": ["node_modules"]
+}

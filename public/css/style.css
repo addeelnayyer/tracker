@@ -121,6 +121,13 @@ body {
   text-decoration: none;
 }
 
+.brand-mark img {
+  width: 22px;
+  height: 22px;
+  vertical-align: -19%;
+  margin-right: 2px;
+}
+
 .brand-mark em {
   font-style: italic;
   color: var(--gold);
@@ -395,9 +402,82 @@ button:active {
   color: var(--pine);
 }
 
+/* ---------- Donate by card ---------- */
+
+.card-donate-section { margin-top: 38px; }
+
+.card-donate-section .optional-hint {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+/* ---------- Donor return banner (Safepay redirect) ---------- */
+
+.payment-landing {
+  position: relative;
+  padding: 20px 44px 20px 22px;
+  margin-bottom: 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--pine);
+  background: var(--success-wash);
+  animation: section-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.payment-landing--error {
+  border-left-color: var(--danger);
+  background: var(--danger-wash);
+  border-color: #e4c4bc;
+}
+
+.payment-landing-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--pine-deep);
+  margin-bottom: 4px;
+}
+
+.payment-landing--error .payment-landing-title { color: var(--danger); }
+
+.payment-landing-msg {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.payment-landing-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.payment-landing-close:hover { color: var(--ink); background: rgba(29, 42, 36, 0.06); }
+
 /* ---------- Bank transfer details ---------- */
 
 .bank-section { margin-top: 38px; }
+
+/* Demoted secondary path beneath the primary "Donate by Card" CTA (#7). */
+.bank-section--secondary { margin-top: 28px; }
+
+.section-label--soft { color: var(--ink-faint); opacity: 0.85; }
+
+.bank-section-note {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  margin: -6px 0 14px;
+}
 
 .bank-list {
   display: grid;
@@ -604,6 +684,23 @@ button:active {
   margin: 0;
   font-size: 12.5px;
   color: var(--ink-faint);
+}
+
+/* Card-paid donations: a small inline marker next to the donor name so the
+   organizer can see at a glance why the amount/delete controls are locked (#8). */
+.donation-card-tag {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 7px;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pine-deep);
+  background: rgba(20, 83, 45, 0.08);
+  border-radius: 999px;
+  vertical-align: middle;
 }
 
 /* Right-side wrapper: amount + proof icon + admin buttons */

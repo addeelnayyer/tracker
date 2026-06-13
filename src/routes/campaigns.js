@@ -81,15 +81,23 @@ router.get('/:slug', async (req, res) => {
     const donations = await firebase.getDonations(campaign.id);
     const bankDetails = await firebase.getBankDetails(campaign.id);
 
+    // Only confirmed donations are public. Card donations start as `pending`
+    // (and may end `failed`) and must never appear in the list, count, or
+    // drive the "last updated" stamp until the signed webhook confirms them.
+    // Legacy manual records have no payment_status and stay visible.
+    const confirmedDonations = donations.filter(
+      (d) => d.payment_status !== 'pending' && d.payment_status !== 'failed'
+    );
+
     // Newest first; donationsLimit caps the page size (omit to get all)
-    const sortedDonations = donations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const sortedDonations = confirmedDonations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     const donationsLimit = parseInt(req.query?.donationsLimit, 10);
     const pagedDonations = donationsLimit > 0 ? sortedDonations.slice(0, donationsLimit) : sortedDonations;
 
     const progressPercentage = (campaign.accumulated_amount / campaign.target_amount) * 100;
 
-    const lastDonationAt = donations.length > 0
-      ? donations.reduce((latest, d) => {
+    const lastDonationAt = confirmedDonations.length > 0
+      ? confirmedDonations.reduce((latest, d) => {
           const at = d.created_at || d.timestamp || '';
           return at > latest ? at : latest;
         }, '')
