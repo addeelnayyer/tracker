@@ -2,14 +2,12 @@
 
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const cookieSession = require('../cookieSession');
 const firebase = require('../firebase');
+const { createMultipart } = require('../multipart');
 
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
+const upload = createMultipart({
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedMimes = [
