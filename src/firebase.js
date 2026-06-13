@@ -4,7 +4,9 @@ if (process.env.NASR_TEST === '1') {
   return; // exits the CommonJS module wrapper
 }
 
-const admin = require('firebase-admin');
+const { initializeApp, cert, applicationDefault } = require('firebase-admin/app');
+const { getDatabase: _getDatabase } = require('firebase-admin/database');
+const { getStorage } = require('firebase-admin/storage');
 require('dotenv').config({ path: '.env.local' }); // secrets for local dev
 require('dotenv').config();                        // non-sensitive config
 
@@ -25,11 +27,11 @@ let firebase;
 const hasServiceAccountKey = Boolean(process.env.SA_PRIVATE_KEY);
 
 try {
-  firebase = admin.initializeApp({
+  firebase = initializeApp({
     // ADC fallback for deploy-time source analysis (SA secrets not yet injected)
     credential: hasServiceAccountKey
-      ? admin.credential.cert(serviceAccount)
-      : admin.credential.applicationDefault(),
+      ? cert(serviceAccount)
+      : applicationDefault(),
     databaseURL: process.env.DB_URL,
     storageBucket: process.env.STORAGE_BUCKET
   });
@@ -39,8 +41,8 @@ try {
   console.error('Firebase initialization error:', error);
 }
 
-const db = admin.database();
-const bucket = admin.storage().bucket();
+const db = _getDatabase();
+const bucket = getStorage().bucket();
 
 
 const getDatabase = () => db;
