@@ -3,6 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const firebase = require('../firebase');
+const cookieSession = require('../cookieSession');
 
 // Hash password utility
 const hashPassword = (password) => {
@@ -119,30 +120,30 @@ router.get('/:slug', async (req, res) => {
 router.delete('/:slug', async (req, res) => {
   try {
     const { slug } = req.params;
-    const { email, password } = req.body;
+    const fb = req.app.locals.firebase;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Credentials required' });
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== slug) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const campaign = await firebase.getCampaign(slug);
+    const campaign = await fb.getCampaign(slug);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-
-    if (campaign.email !== email || !bcrypt.compareSync(password, campaign.password_hash)) {
-      return res.status(403).json({ error: 'Invalid credentials' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const [donations, bankDetails, documents] = await Promise.all([
-      firebase.getDonations(campaign.id),
-      firebase.getBankDetails(campaign.id),
-      firebase.getDocuments(campaign.id),
+      fb.getDonations(campaign.id),
+      fb.getBankDetails(campaign.id),
+      fb.getDocuments(campaign.id),
     ]);
 
     if (donations.length > 0 || bankDetails.length > 0 || documents.length > 0) {
       return res.status(409).json({ error: 'Campaign is not empty — remove all donations, bank accounts, and documents first' });
     }
 
-    await firebase.deleteCampaign(slug, campaign.id);
+    await fb.deleteCampaign(slug, campaign.id);
     res.json({ success: true });
   } catch (error) {
     console.error(error);

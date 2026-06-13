@@ -1,19 +1,17 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const bcrypt = require('bcryptjs');
-const firebase = require('../firebase');
 const { v4: uuidv4 } = require('uuid');
+const cookieSession = require('../cookieSession');
+const firebase = require('../firebase');
 
-// Configure multer for in-memory file storage
 const storage = multer.memoryStorage();
 const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit per file
-  },
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    // Organizer uploads are restricted to images and PDFs
     const allowedMimes = [
       'application/pdf',
       'image/jpeg',
@@ -22,57 +20,38 @@ const upload = multer({
       'image/webp',
       'image/svg+xml'
     ];
-
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only images and PDFs are allowed.'));
-    }
+    allowedMimes.includes(file.mimetype) ? cb(null, true) : cb(new Error('Invalid file type. Only images and PDFs are allowed.'));
   }
 });
 
-// Verify password
-const verifyPassword = (password, hash) => {
-  return bcrypt.compareSync(password, hash);
-};
-
-// Upload documents
+// Upload documents (requires session cookie)
 router.post('/:campaignSlug/upload', upload.array('documents', 10), async (req, res) => {
   try {
     const { campaignSlug } = req.params;
-    const { email, password } = req.body;
+    const fb = req.app.locals.firebase;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== campaignSlug) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    // Get campaign and verify credentials
-    const campaign = await firebase.getCampaign(campaignSlug);
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
-    }
-
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const campaign = await fb.getCampaign(campaignSlug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const uploadedDocs = [];
-
-    // New uploads append after everything already in the gallery: reordered
-    // docs hold small sequential indices, so an epoch-ms order always lands last
     const orderBase = Date.now();
 
-    // Upload each file
     for (const [index, file] of req.files.entries()) {
       const fileName = `${uuidv4()}-${file.originalname}`;
-      const { url, filePath } = await firebase.uploadFile(file, campaign.id, fileName);
+      const { url, filePath } = await fb.uploadFile(file, campaign.id, fileName);
 
-      // Save document metadata to database
       const docData = {
         name: file.originalname,
         file_path: filePath,
@@ -83,10 +62,11 @@ router.post('/:campaignSlug/upload', upload.array('documents', 10), async (req, 
         display_order: orderBase + index
       };
 
-      const docId = await firebase.addDocument(campaign.id, docData);
+      const docId = await fb.addDocument(campaign.id, docData);
       uploadedDocs.push({ id: docId, ...docData });
     }
 
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
     res.json({ success: true, documents: uploadedDocs });
   } catch (error) {
     console.error(error);
@@ -100,10 +80,7 @@ router.get('/:campaignSlug', async (req, res) => {
     const { campaignSlug } = req.params;
 
     const campaign = await firebase.getCampaign(campaignSlug);
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
-    }
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
     const documents = await firebase.getDocuments(campaign.id);
 
@@ -119,31 +96,29 @@ router.get('/:campaignSlug', async (req, res) => {
   }
 });
 
-// Reorder documents (requires authentication)
+// Reorder documents (requires session cookie)
 router.put('/:campaignSlug/reorder', async (req, res) => {
   try {
     const { campaignSlug } = req.params;
-    const { email, password, order } = req.body;
+    const { order } = req.body;
+    const fb = req.app.locals.firebase;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== campaignSlug) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     if (!Array.isArray(order) || order.length === 0 || !order.every(id => typeof id === 'string')) {
       return res.status(400).json({ error: 'Order must be a non-empty array of document IDs' });
     }
 
-    const campaign = await firebase.getCampaign(campaignSlug);
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
+    const campaign = await fb.getCampaign(campaignSlug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const documents = await firebase.getDocuments(campaign.id);
+    const documents = await fb.getDocuments(campaign.id);
     const existingIds = new Set(documents.map(d => d.id));
     const uniqueOrder = new Set(order);
 
@@ -153,8 +128,8 @@ router.put('/:campaignSlug/reorder', async (req, res) => {
       return res.status(409).json({ error: 'Order list does not match the campaign documents' });
     }
 
-    await firebase.updateDocumentOrders(campaign.id, order);
-
+    await fb.updateDocumentOrders(campaign.id, order);
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
     res.json({ success: true });
   } catch (error) {
     console.error(error);
@@ -162,41 +137,30 @@ router.put('/:campaignSlug/reorder', async (req, res) => {
   }
 });
 
-// Delete document (requires authentication)
+// Delete document (requires session cookie)
 router.delete('/:campaignSlug/:documentId', async (req, res) => {
   try {
     const { campaignSlug, documentId } = req.params;
-    const { email, password } = req.body;
+    const fb = req.app.locals.firebase;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== campaignSlug) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Get campaign and verify credentials
-    const campaign = await firebase.getCampaign(campaignSlug);
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
+    const campaign = await fb.getCampaign(campaignSlug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Get document
-    const documents = await firebase.getDocuments(campaign.id);
+    const documents = await fb.getDocuments(campaign.id);
     const document = documents.find(d => d.id === documentId);
+    if (!document) return res.status(404).json({ error: 'Document not found' });
 
-    if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
-    }
-
-    // Delete from storage
-    await firebase.deleteFile(document.file_path);
-
-    // Delete from database
-    await firebase.deleteDocument(campaign.id, documentId);
-
+    await fb.deleteFile(document.file_path);
+    await fb.deleteDocument(campaign.id, documentId);
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
     res.json({ success: true });
   } catch (error) {
     console.error(error);

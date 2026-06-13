@@ -1,12 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const firebase = require('../firebase');
 const cookieSession = require('../cookieSession');
-
-const verifyPassword = (password, hash) => bcrypt.compareSync(password, hash);
 
 const proofUpload = multer({
   storage: multer.memoryStorage(),
@@ -61,36 +57,43 @@ router.post('/:campaignSlug', async (req, res) => {
   }
 });
 
-// Edit a donation (requires authentication)
+// Edit a donation (requires session cookie)
 router.put('/:campaignSlug/:donationId', async (req, res) => {
   try {
     const { campaignSlug, donationId } = req.params;
-    const { donorName, amount, timestamp, email, password } = req.body;
+    const { donorName, amount, timestamp } = req.body;
+    const fb = req.app.locals.firebase;
 
-    if (!donorName || !amount || !timestamp || !email || !password) {
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== campaignSlug) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!donorName || !amount || !timestamp) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
-    const campaign = await firebase.getCampaign(campaignSlug);
+    const campaign = await fb.getCampaign(campaignSlug);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const donations = await firebase.getDonations(campaign.id);
+    const donations = await fb.getDonations(campaign.id);
     const existing = donations.find(d => d.id === donationId);
     if (!existing) return res.status(404).json({ error: 'Donation not found' });
 
     const newAmount = parseFloat(amount);
-    await firebase.updateDonation(campaign.id, donationId, {
+    await fb.updateDonation(campaign.id, donationId, {
       donor_name: donorName,
       amount: newAmount,
       timestamp: new Date(timestamp).toISOString()
     });
 
     const newAccumulatedAmount = campaign.accumulated_amount - existing.amount + newAmount;
-    await firebase.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
+    await fb.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
 
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
     res.json({ success: true });
   } catch (error) {
     console.error(error);
@@ -98,38 +101,41 @@ router.put('/:campaignSlug/:donationId', async (req, res) => {
   }
 });
 
-// Attach proof to a donation (requires authentication)
+// Attach proof to a donation (requires session cookie)
 router.post('/:campaignSlug/:donationId/proof', proofUpload.single('proof'), async (req, res) => {
   try {
     const { campaignSlug, donationId } = req.params;
-    const { email, password } = req.body;
+    const fb = req.app.locals.firebase;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== campaignSlug) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
+
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const campaign = await firebase.getCampaign(campaignSlug);
+    const campaign = await fb.getCampaign(campaignSlug);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const donations = await firebase.getDonations(campaign.id);
+    const donations = await fb.getDonations(campaign.id);
     const existing = donations.find(d => d.id === donationId);
     if (!existing) return res.status(404).json({ error: 'Donation not found' });
 
     const fileName = `proof-${uuidv4()}-${req.file.originalname}`;
-    const { url, filePath } = await firebase.uploadFile(req.file, campaign.id, fileName);
+    const { url, filePath } = await fb.uploadFile(req.file, campaign.id, fileName);
 
-    await firebase.updateDonation(campaign.id, donationId, {
+    await fb.updateDonation(campaign.id, donationId, {
       proof_url: url,
       proof_file_path: filePath,
       proof_mime_type: req.file.mimetype
     });
 
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
     res.json({ success: true, proof_url: url });
   } catch (error) {
     console.error(error);
@@ -137,26 +143,32 @@ router.post('/:campaignSlug/:donationId/proof', proofUpload.single('proof'), asy
   }
 });
 
-// Delete a donation (requires authentication)
+// Delete a donation (requires session cookie)
 router.delete('/:campaignSlug/:donationId', async (req, res) => {
   try {
     const { campaignSlug, donationId } = req.params;
-    const { email, password } = req.body;
+    const fb = req.app.locals.firebase;
 
-    const campaign = await firebase.getCampaign(campaignSlug);
-    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== campaignSlug) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const donations = await firebase.getDonations(campaign.id);
+    const campaign = await fb.getCampaign(campaignSlug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const donations = await fb.getDonations(campaign.id);
     const donation = donations.find(d => d.id === donationId);
     if (!donation) return res.status(404).json({ error: 'Donation not found' });
 
-    await firebase.deleteDonation(campaign.id, donationId);
+    await fb.deleteDonation(campaign.id, donationId);
     const newAccumulatedAmount = campaign.accumulated_amount - donation.amount;
-    await firebase.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
+    await fb.updateCampaignAmount(campaignSlug, newAccumulatedAmount);
 
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
     res.json({ success: true });
   } catch (error) {
     console.error(error);

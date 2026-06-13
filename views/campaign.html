@@ -563,15 +563,10 @@
         return;
       }
 
-      const email = localStorage.getItem(`admin_email_${slug}`);
-      const password = localStorage.getItem(`admin_password_${slug}`);
-
       itemEl && itemEl.classList.add('donation-item--uploading');
       try {
         const formData = new FormData();
         formData.append('proof', file);
-        formData.append('email', email);
-        formData.append('password', password);
         await apiCall(`/api/donations/${slug}/${donationId}/proof`, 'POST', formData, true);
         showMessage('message', 'Proof attached', 'success');
         loadCampaign();
@@ -627,16 +622,13 @@
         const donorName = form.querySelector('.donation-edit-name').value.trim();
         const amount = parseFloat(form.querySelector('.donation-edit-amount').value);
         const timestamp = new Date(form.querySelector('.donation-edit-date').value).toISOString();
-        const email = localStorage.getItem(`admin_email_${slug}`);
-        const password = localStorage.getItem(`admin_password_${slug}`);
-
         const saveBtn = form.querySelector('.edit-save-btn');
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving…';
 
         try {
           await apiCall(`/api/donations/${slug}/${donationId}`, 'PUT', {
-            donorName, amount, timestamp, email, password
+            donorName, amount, timestamp
           });
           showMessage('message', 'Donation updated', 'success');
           loadCampaign();
@@ -768,12 +760,10 @@
       const donorName = document.getElementById('donorName').value.trim();
       const amount = parseFloat(document.getElementById('donationAmount').value);
       const timestamp = new Date(document.getElementById('donationTimestamp').value).toISOString();
-      const email = localStorage.getItem(`admin_email_${slug}`);
-      const password = localStorage.getItem(`admin_password_${slug}`);
 
       try {
         await apiCall(`/api/donations/${slug}`, 'POST', {
-          donorName, amount, timestamp, email, password
+          donorName, amount, timestamp
         });
 
         showMessage('message', 'Donation added successfully!', 'success');
@@ -799,11 +789,8 @@
     async function deleteDonation(donationId) {
       if (!confirm('Are you sure you want to delete this donation?')) return;
 
-      const email = localStorage.getItem(`admin_email_${slug}`);
-      const password = localStorage.getItem(`admin_password_${slug}`);
-
       try {
-        await apiCall(`/api/donations/${slug}/${donationId}`, 'DELETE', { email, password });
+        await apiCall(`/api/donations/${slug}/${donationId}`, 'DELETE');
         showMessage('message', 'Donation deleted successfully', 'success');
         loadCampaign();
       } catch (error) {
@@ -827,14 +814,8 @@
     document.getElementById('deleteCampaignBtn').addEventListener('click', async () => {
       if (!confirm('Permanently delete this campaign? This cannot be undone.')) return;
 
-      const email = localStorage.getItem(`admin_email_${slug}`);
-      const password = localStorage.getItem(`admin_password_${slug}`);
-
       try {
-        await apiCall(`/api/campaigns/${slug}`, 'DELETE', { email, password });
-        localStorage.removeItem(`admin_${slug}`);
-        localStorage.removeItem(`admin_email_${slug}`);
-        localStorage.removeItem(`admin_password_${slug}`);
+        await apiCall(`/api/campaigns/${slug}`, 'DELETE');
         window.location.href = '/';
       } catch (error) {
         showMessage('message', error.message || 'Failed to delete campaign', 'error');
@@ -897,12 +878,10 @@
       const bankName = document.getElementById('bankName').value.trim();
       const accountTitle = document.getElementById('accountTitle').value.trim();
       const accountNumber = document.getElementById('accountNumber').value.trim();
-      const email = localStorage.getItem(`admin_email_${slug}`);
-      const password = localStorage.getItem(`admin_password_${slug}`);
 
       try {
         await apiCall(`/api/bank-details/${slug}`, 'POST', {
-          bankName, accountTitle, accountNumber, email, password
+          bankName, accountTitle, accountNumber
         });
 
         showMessage('message', 'Bank account added', 'success');
@@ -916,11 +895,8 @@
     async function deleteBankDetail(bankDetailId) {
       if (!confirm('Remove this bank account from the campaign?')) return;
 
-      const email = localStorage.getItem(`admin_email_${slug}`);
-      const password = localStorage.getItem(`admin_password_${slug}`);
-
       try {
-        await apiCall(`/api/bank-details/${slug}/${bankDetailId}`, 'DELETE', { email, password });
+        await apiCall(`/api/bank-details/${slug}/${bankDetailId}`, 'DELETE');
         showMessage('message', 'Bank account removed', 'success');
         loadCampaign();
       } catch (error) {
@@ -1026,11 +1002,8 @@
       const docsById = new Map(galleryDocs.map(d => [d.id, d]));
       renderGallery(orderedIds.map(id => docsById.get(id)));
 
-      const email = localStorage.getItem(`admin_email_${slug}`);
-      const password = localStorage.getItem(`admin_password_${slug}`);
-
       try {
-        await apiCall(`/api/documents/${slug}/reorder`, 'PUT', { email, password, order: orderedIds });
+        await apiCall(`/api/documents/${slug}/reorder`, 'PUT', { order: orderedIds });
         showMessage('message', 'Document order saved', 'success');
       } catch (error) {
         showMessage('message', error.message || 'Failed to save document order', 'error');
@@ -1062,11 +1035,8 @@
     async function deleteDocument(documentId) {
       if (!confirm('Are you sure you want to delete this document?')) return;
 
-      const email = localStorage.getItem(`admin_email_${slug}`);
-      const password = localStorage.getItem(`admin_password_${slug}`);
-
       try {
-        await apiCall(`/api/documents/${slug}/${documentId}`, 'DELETE', { email, password });
+        await apiCall(`/api/documents/${slug}/${documentId}`, 'DELETE');
         showMessage('message', 'Document deleted', 'success');
         loadDocuments();
       } catch (error) {
@@ -1128,8 +1098,6 @@
 
       const formData = new FormData();
       accepted.forEach(f => formData.append('documents', f));
-      formData.append('email', localStorage.getItem(`admin_email_${slug}`));
-      formData.append('password', localStorage.getItem(`admin_password_${slug}`));
 
       try {
         await apiCall(`/api/documents/${slug}/upload`, 'POST', formData, true);

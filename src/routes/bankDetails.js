@@ -1,22 +1,24 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const firebase = require('../firebase');
-
-// Verify password
-const verifyPassword = (password, hash) => {
-  return bcrypt.compareSync(password, hash);
-};
+const cookieSession = require('../cookieSession');
 
 const MAX_FIELD_LENGTH = 140;
 
-// Add a bank detail (requires authentication)
+// Add a bank detail (requires session cookie)
 router.post('/:campaignSlug', async (req, res) => {
   try {
     const { campaignSlug } = req.params;
-    const { bankName, accountTitle, accountNumber, email, password } = req.body;
+    const { bankName, accountTitle, accountNumber } = req.body;
+    const fb = req.app.locals.firebase;
 
-    if (!bankName || !accountTitle || !accountNumber || !email || !password) {
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== campaignSlug) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!bankName || !accountTitle || !accountNumber) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -24,15 +26,10 @@ router.post('/:campaignSlug', async (req, res) => {
       return res.status(400).json({ error: `Fields must be at most ${MAX_FIELD_LENGTH} characters` });
     }
 
-    // Get campaign and verify credentials
-    const campaign = await firebase.getCampaign(campaignSlug);
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
-    }
-
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const campaign = await fb.getCampaign(campaignSlug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const bankDetailData = {
@@ -42,8 +39,8 @@ router.post('/:campaignSlug', async (req, res) => {
       created_at: new Date().toISOString()
     };
 
-    const bankDetailId = await firebase.addBankDetail(campaign.id, bankDetailData);
-
+    const bankDetailId = await fb.addBankDetail(campaign.id, bankDetailData);
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
     res.json({ success: true, bankDetailId });
   } catch (error) {
     console.error(error);
@@ -51,25 +48,25 @@ router.post('/:campaignSlug', async (req, res) => {
   }
 });
 
-// Delete a bank detail (requires authentication)
+// Delete a bank detail (requires session cookie)
 router.delete('/:campaignSlug/:bankDetailId', async (req, res) => {
   try {
     const { campaignSlug, bankDetailId } = req.params;
-    const { email, password } = req.body;
+    const fb = req.app.locals.firebase;
 
-    // Get campaign and verify credentials
-    const campaign = await firebase.getCampaign(campaignSlug);
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaign not found' });
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== campaignSlug) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    if (campaign.email !== email || !verifyPassword(password, campaign.password_hash)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const campaign = await fb.getCampaign(campaignSlug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    await firebase.deleteBankDetail(campaign.id, bankDetailId);
-
+    await fb.deleteBankDetail(campaign.id, bankDetailId);
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
     res.json({ success: true });
   } catch (error) {
     console.error(error);
