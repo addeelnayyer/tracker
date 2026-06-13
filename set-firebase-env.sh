@@ -39,6 +39,7 @@ set_secret SESSION_SECRET    "$(get_env SESSION_SECRET)"
 set_secret SA_PRIVATE_KEY_ID "$(get_env SA_PRIVATE_KEY_ID)"
 set_secret SA_CLIENT_EMAIL   "$(get_env SA_CLIENT_EMAIL)"
 set_secret SA_CLIENT_ID      "$(get_env SA_CLIENT_ID)"
+set_secret RESEND_API_KEY    "$(get_env RESEND_API_KEY)"
 
 # Private key: stored with literal \n in .env — convert to real newlines for Secret Manager
 RAW_KEY=$(get_env SA_PRIVATE_KEY)
@@ -47,5 +48,5 @@ echo "Setting SA_PRIVATE_KEY..."
 printf '%s' "$REAL_KEY" | $FIREBASE functions:secrets:set SA_PRIVATE_KEY
 
 echo ""
-echo "Done. All 5 secrets are in Secret Manager."
+echo "Done. All 6 secrets are in Secret Manager."
 echo "Non-sensitive vars come from .env automatically on firebase deploy."

@@ -9,6 +9,7 @@ const SECRETS = [
   'SA_CLIENT_EMAIL',
   'SA_CLIENT_ID',
   'SESSION_SECRET',
+  'RESEND_API_KEY',
 ];
 
 exports.api = onRequest({ region: 'us-central1', secrets: SECRETS, invoker: 'public' }, app);
