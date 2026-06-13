@@ -13,7 +13,13 @@
   <div class="container">
     <header class="brand">
       <a class="brand-mark" href="/">Nasr<em>.</em></a>
-      <span class="brand-tag">Campaign Ledger</span>
+      <div class="brand-aside">
+        <span class="brand-tag">Campaign Ledger</span>
+        <button type="button" class="organizer-key" id="organizerKey" aria-controls="organizerDrawer">
+          <span class="organizer-key__seal" aria-hidden="true"></span>
+          <span class="organizer-key__label">Organizer? <span>Sign in</span></span>
+        </button>
+      </div>
     </header>
 
     <div id="message"></div>
@@ -73,31 +79,7 @@
       </div>
     </div>
 
-    <!-- Organizer tools live in the drawer (#organizerDrawer) below -->
-
-    <!-- Non-Admin Login Section -->
-    <div id="loginSection" class="admin-section">
-      <h2>Organizer Access</h2>
-      <p class="lede">Running this campaign? Sign in to record donations.</p>
-
-      <form id="otpRequestForm">
-        <div class="form-group">
-          <label for="loginEmail">Email</label>
-          <input type="email" id="loginEmail" placeholder="organizer@example.com" required>
-        </div>
-        <button type="submit" class="block-btn">Send Code</button>
-      </form>
-
-      <form id="otpVerifyForm" style="display: none; margin-top: 18px;">
-        <p class="lede" style="font-size: 14px;">Enter the 6-digit code sent to your email.</p>
-        <div class="form-group">
-          <label for="otpCode">Code</label>
-          <input type="text" id="otpCode" placeholder="123456" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required>
-        </div>
-        <button type="submit" class="block-btn">Verify</button>
-        <button type="button" class="secondary-btn" id="otpBackBtn" style="margin-top: 8px;">Back</button>
-      </form>
-    </div>
+    <!-- Organizer sign-in + tools live in the drawer (#organizerDrawer) below -->
 
     <footer class="page-foot">
       <a href="/">← Start a new campaign</a>
@@ -128,13 +110,39 @@
     <header class="drawer-head">
       <div>
         <span class="drawer-eyebrow">Campaign Ledger</span>
-        <h2 class="drawer-title">Organizer Desk</h2>
+        <h2 class="drawer-title"><span class="drawer-title--out">Organizer Sign-in</span><span class="drawer-title--in">Organizer Desk</span></h2>
       </div>
       <button class="drawer-close" id="drawerClose" type="button" aria-label="Close organizer desk">&#10005;</button>
     </header>
 
     <div class="drawer-body">
       <div id="drawerMessage"></div>
+
+      <!-- Sign-in pane (shown when logged out) -->
+      <div class="drawer-login" id="drawerLogin">
+        <p class="drawer-login__lede">Running this campaign? Sign in with a one-time code to record donations and manage your ledger.</p>
+
+        <form id="otpRequestForm">
+          <div class="form-group">
+            <label for="loginEmail">Organizer Email</label>
+            <input type="email" id="loginEmail" placeholder="organizer@example.com" required>
+          </div>
+          <button type="submit" class="block-btn">Send Code</button>
+        </form>
+
+        <form id="otpVerifyForm" style="display: none; margin-top: 18px;">
+          <p class="drawer-login__lede">Enter the 6-digit code sent to your email.</p>
+          <div class="form-group">
+            <label>Email</label>
+            <p class="otp-email-display"><strong id="otpEmailLabel"></strong> · <a href="#" id="otpChangeEmail">Change email?</a></p>
+          </div>
+          <div class="form-group">
+            <label for="otpCode">Code</label>
+            <input type="text" id="otpCode" placeholder="123456" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required>
+          </div>
+          <button type="submit" class="block-btn">Verify</button>
+        </form>
+      </div>
 
       <details class="drawer-section" open>
         <summary>
@@ -237,8 +245,29 @@
     </footer>
   </aside>
 
+  <!-- Full-screen blocking overlay -->
+  <div class="app-overlay" id="appOverlay" role="alertdialog" aria-busy="true" aria-live="assertive" aria-hidden="true">
+    <div class="app-overlay__seal" aria-hidden="true">
+      <span class="app-overlay__mark">N<em>.</em></span>
+    </div>
+    <p class="app-overlay__caption" id="appOverlayCaption">Sending code</p>
+  </div>
+
   <script src="/js/app.js"></script>
   <script>
+    function showOverlay(caption) {
+      const overlay = document.getElementById('appOverlay');
+      if (caption) document.getElementById('appOverlayCaption').textContent = caption;
+      overlay.classList.add('is-active');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideOverlay() {
+      const overlay = document.getElementById('appOverlay');
+      overlay.classList.remove('is-active');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+
     const slug = window.location.pathname.split('/')[2];
     let isAdmin = false;
     let campaignCurrency = 'USD';
@@ -601,37 +630,48 @@
     document.getElementById('otpRequestForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('loginEmail').value.trim();
+      showOverlay('Sending code');
       try {
         await apiCall('/api/auth/otp/request', 'POST', { campaignSlug: slug, email });
+        document.getElementById('otpEmailLabel').textContent = email;
         document.getElementById('otpRequestForm').style.display = 'none';
         document.getElementById('otpVerifyForm').style.display = 'block';
         document.getElementById('otpCode').focus();
-        showMessage('message', 'Code sent — check your email.', 'success');
+        showMessage('drawerMessage', 'Code sent — check your email.', 'success');
       } catch (error) {
-        showMessage('message', error.message || 'Failed to send code', 'error');
+        showMessage('drawerMessage', error.message || 'Failed to send code', 'error');
+      } finally {
+        hideOverlay();
       }
     });
 
     document.getElementById('otpVerifyForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const code = document.getElementById('otpCode').value.trim();
+      const code = document.getElementById('otpCode').value.replace(/\D/g, '');
       try {
         await apiCall('/api/auth/otp/verify', 'POST', { campaignSlug: slug, code });
         document.getElementById('otpVerifyForm').style.display = 'none';
         setAdminMode(true);
         openDrawer();
-        showMessage('message', 'Signed in successfully.', 'success');
+        showMessage('drawerMessage', 'Signed in successfully.', 'success');
         loadCampaign();
         loadDocuments();
       } catch (error) {
-        showMessage('message', error.message || 'Invalid code', 'error');
+        showMessage('drawerMessage', error.message || 'Invalid code', 'error');
       }
     });
 
-    document.getElementById('otpBackBtn').addEventListener('click', () => {
+    // Strip anything that isn't a digit (e.g. spaces from a copied code).
+    document.getElementById('otpCode').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '');
+    });
+
+    document.getElementById('otpChangeEmail').addEventListener('click', (e) => {
+      e.preventDefault();
       document.getElementById('otpVerifyForm').style.display = 'none';
       document.getElementById('otpRequestForm').style.display = 'block';
       document.getElementById('otpCode').value = '';
+      document.getElementById('loginEmail').focus();
     });
 
     // ==================== Donation form ====================
@@ -1105,7 +1145,15 @@
     function setAdminMode(on) {
       isAdmin = on;
       document.body.classList.toggle('admin-mode', on);
-      document.getElementById('loginSection').style.display = on ? 'none' : 'block';
+      // The drawer swaps between the sign-in pane and the organizer tools via CSS.
+      if (!on) {
+        // Reset OTP flow so the email + Send Code form is shown again on logout
+        document.getElementById('otpVerifyForm').style.display = 'none';
+        document.getElementById('otpRequestForm').style.display = 'block';
+        document.getElementById('otpRequestForm').reset();
+        document.getElementById('otpCode').value = '';
+        document.getElementById('drawerMessage').innerHTML = '';
+      }
     }
 
     function openDrawer() {
@@ -1114,7 +1162,13 @@
       drawer.setAttribute('aria-hidden', 'false');
       drawerTab.setAttribute('aria-expanded', 'true');
       document.body.classList.add('drawer-open');
-      drawerClose.focus();
+      // When signing in, drop the organizer straight onto the email field.
+      if (!document.body.classList.contains('admin-mode') &&
+          document.getElementById('otpRequestForm').style.display !== 'none') {
+        document.getElementById('loginEmail').focus();
+      } else {
+        drawerClose.focus();
+      }
     }
 
     function closeDrawer() {
@@ -1124,9 +1178,11 @@
       drawerTab.setAttribute('aria-expanded', 'false');
       document.body.classList.remove('drawer-open');
       if (document.body.classList.contains('admin-mode')) drawerTab.focus();
+      else document.getElementById('organizerKey').focus();
     }
 
     drawerTab.addEventListener('click', openDrawer);
+    document.getElementById('organizerKey').addEventListener('click', openDrawer);
     drawerClose.addEventListener('click', closeDrawer);
     drawerScrim.addEventListener('click', closeDrawer);
 

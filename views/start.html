@@ -136,9 +136,14 @@
       }
     });
 
+    // Strip anything that isn't a digit (e.g. spaces from a copied code).
+    document.getElementById('otpCode').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '');
+    });
+
     document.getElementById('confirmForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const code = document.getElementById('otpCode').value.trim();
+      const code = document.getElementById('otpCode').value.replace(/\D/g, '');
 
       try {
         const response = await apiCall('/api/campaigns/confirm', 'POST', { token: pendingToken, code });

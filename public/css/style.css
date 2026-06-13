@@ -1831,3 +1831,222 @@ body.drawer-open { overflow: hidden; }
     padding-right: 20px;
   }
 }
+
+/* ==================== Blocking overlay / ledger seal spinner ==================== */
+.app-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: radial-gradient(120% 120% at 50% 38%, rgba(243, 238, 227, 0.82), rgba(20, 61, 47, 0.34));
+  backdrop-filter: blur(6px) saturate(0.95);
+  -webkit-backdrop-filter: blur(6px) saturate(0.95);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.28s ease, visibility 0s linear 0.28s;
+}
+
+.app-overlay.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.28s ease;
+}
+
+.app-overlay__seal {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 14px 28px rgba(20, 61, 47, 0.28));
+}
+
+/* concentric counter-rotating arcs */
+.app-overlay__seal::before,
+.app-overlay__seal::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+}
+
+.app-overlay__seal::before {
+  inset: 0;
+  border-top-color: var(--pine);
+  border-right-color: var(--pine);
+  animation: seal-spin 1.15s cubic-bezier(0.62, 0.04, 0.34, 0.97) infinite;
+}
+
+.app-overlay__seal::after {
+  inset: 16px;
+  border-bottom-color: var(--gold);
+  border-left-color: var(--gold);
+  animation: seal-spin 1.5s cubic-bezier(0.62, 0.04, 0.34, 0.97) infinite reverse;
+}
+
+/* monogram core that gently pulses */
+.app-overlay__mark {
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--card);
+  color: var(--pine-deep);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  animation: seal-pulse 1.5s ease-in-out infinite;
+}
+
+.app-overlay__mark em { font-style: normal; color: var(--gold); }
+
+.app-overlay__caption {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+  color: var(--pine-deep);
+  text-align: center;
+}
+
+.app-overlay__caption::after {
+  content: "";
+  animation: seal-ellipsis 1.4s steps(4, end) infinite;
+}
+
+@keyframes seal-spin { to { transform: rotate(360deg); } }
+
+@keyframes seal-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.92); }
+}
+
+@keyframes seal-ellipsis {
+  0% { content: ""; }
+  25% { content: "·"; }
+  50% { content: "··"; }
+  75% { content: "···"; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-overlay__seal::before,
+  .app-overlay__seal::after { animation-duration: 2.4s; animation-timing-function: linear; }
+  .app-overlay__mark,
+  .app-overlay__caption::after { animation: none; }
+}
+
+/* ==================== Organizer sign-in key (header affordance) ==================== */
+.brand-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.organizer-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px 7px 11px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--pine-deep);
+  background: var(--card);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(29, 42, 36, 0.05);
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.organizer-key__label { white-space: nowrap; }
+.organizer-key__label span { color: var(--gold); }
+
+/* wax-seal dot with a soft pulsing halo */
+.organizer-key__seal {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 253, 247, 0.55);
+  flex: none;
+}
+
+.organizer-key__seal::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--gold);
+  opacity: 0.5;
+  animation: key-halo 2.4s ease-out infinite;
+}
+
+@keyframes key-halo {
+  0% { transform: scale(0.7); opacity: 0.55; }
+  70%, 100% { transform: scale(1.5); opacity: 0; }
+}
+
+.organizer-key:hover,
+.organizer-key:focus-visible {
+  color: var(--paper);
+  background: var(--pine);
+  border-color: var(--pine-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -10px rgba(20, 61, 47, 0.6);
+}
+
+.organizer-key:hover .organizer-key__label span,
+.organizer-key:focus-visible .organizer-key__label span { color: var(--paper); }
+
+.organizer-key:hover .organizer-key__seal,
+.organizer-key:focus-visible .organizer-key__seal {
+  background: var(--paper);
+  box-shadow: inset 0 0 0 1.5px var(--pine);
+}
+
+/* Once signed in, the side tab takes over — hide the header key */
+body.admin-mode .organizer-key { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .organizer-key__seal::after { animation: none; opacity: 0; }
+}
+
+@media (max-width: 540px) {
+  .organizer-key { padding: 6px 12px; font-size: 11px; }
+  .organizer-key__label span { display: inline; }
+}
+
+/* ==================== Drawer sign-in pane ==================== */
+.drawer-login__lede {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin: 0 0 18px;
+}
+
+/* Swap drawer contents based on auth state */
+.drawer-section,
+.drawer-foot { display: none; }
+
+body.admin-mode .drawer-login { display: none; }
+body.admin-mode .drawer-section { display: block; }
+body.admin-mode .drawer-foot { display: flex; }
+
+/* Drawer title swaps with auth state */
+.drawer-title--in { display: none; }
+body.admin-mode .drawer-title--out { display: none; }
+body.admin-mode .drawer-title--in { display: inline; }
