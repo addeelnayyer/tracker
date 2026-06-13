@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const cookieSession = require('../cookieSession');
+const { createMultipart } = require('../multipart');
 
-const proofUpload = multer({
-  storage: multer.memoryStorage(),
+const proofUpload = createMultipart({
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg','image/png','image/gif','image/webp','image/svg+xml','application/pdf'];
