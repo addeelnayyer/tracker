@@ -194,14 +194,37 @@ router.post('/webhook', async (req, res) => {
   try {
     const secret = process.env.SAFEPAY_WEBHOOK_SECRET;
     const signature = req.headers['x-sfpy-signature'];
+
+    // TEMP diagnostic logging — dump everything the webhook receives so the
+    // exact Safepay envelope, headers, and signature can be inspected against a
+    // live event. Remove once the envelope (ADR 0001 "Open / to confirm") is
+    // confirmed.
+    const rawBody = req.rawBody;
+    const rawStr = Buffer.isBuffer(rawBody)
+      ? rawBody.toString('utf8')
+      : typeof rawBody === 'string'
+        ? rawBody
+        : null;
+    console.log('[webhook] ───────────── incoming event ─────────────');
+    console.log('[webhook] headers:', JSON.stringify(req.headers, null, 2));
+    console.log('[webhook] x-sfpy-signature:', signature || '(none)');
+    console.log('[webhook] secret configured:', Boolean(secret));
+    console.log('[webhook] rawBody present:', rawBody != null, 'len:', rawStr ? rawStr.length : 0);
+    console.log('[webhook] rawBody:', rawStr);
+    console.log('[webhook] parsed body:', JSON.stringify(req.body, null, 2));
+    console.log('[webhook] parsed event:', JSON.stringify(parseWebhookEvent(req.body || {})));
+
     if (!verifyWebhookSignature(req.rawBody, signature, secret)) {
+      console.log('[webhook] signature verification: FAILED -> 401');
       return res.status(401).json({ error: 'Invalid or missing signature' });
     }
+    console.log('[webhook] signature verification: OK');
 
     const { status, body } = await confirmFromEvent(req.body || {});
+    console.log('[webhook] outcome:', status, JSON.stringify(body));
     res.status(status).json(body);
   } catch (err) {
-    console.error(err);
+    console.error('[webhook] error:', err);
     res.status(500).json({ error: err.message });
   }
 });
