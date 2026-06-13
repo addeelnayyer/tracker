@@ -373,7 +373,7 @@
         const isImg = (donation.proof_mime_type || '').startsWith('image/');
         proofSection = `<button class="proof-icon" type="button"
           data-proof-url="${escapeHtml(donation.proof_url)}"
-          data-proof-name="${escapeHtml(donation.donor_name)} — Proof"
+          data-proof-name="${escapeHtml(donation.donor_name || 'Anonymous')} — Proof"
           data-proof-mime="${escapeHtml(donation.proof_mime_type || '')}"
           title="View payment proof" aria-label="View payment proof">&#9112;</button>`;
       } else if (isAdmin) {
@@ -391,7 +391,7 @@
       return `
         <div class="donation-item${isAdmin ? ' donation-item--admin' : ''}" data-donation-id="${donation.id}">
           <div class="donation-info">
-            <h3>${escapeHtml(donation.donor_name)}</h3>
+            <h3>${escapeHtml(donation.donor_name || 'Anonymous')}</h3>
             <p>${formatDate(donation.timestamp)}</p>
           </div>
           <div class="donation-item-actions">
@@ -408,7 +408,7 @@
 
       if (searchQuery) {
         donations = donations.filter(d =>
-          d.donor_name.toLowerCase().includes(searchQuery)
+          (d.donor_name || '').toLowerCase().includes(searchQuery)
         );
       }
 
@@ -601,7 +601,7 @@
           <div class="donation-edit-fields">
             <div class="form-group" style="margin-bottom:0;">
               <label>Donor Name</label>
-              <input type="text" class="donation-edit-name" value="${escapeHtml(donation.donor_name)}" required>
+              <input type="text" class="donation-edit-name" value="${escapeHtml(donation.donor_name || '')}" required>
             </div>
             <div class="form-group" style="margin-bottom:0;">
               <label>Amount</label>
