@@ -218,7 +218,7 @@
         </div>
       </details>
 
-      <details class="drawer-section">
+      <details class="drawer-section" id="donationSection">
         <summary>
           <span class="drawer-section-no">02</span>
           <span class="drawer-section-title">Record a Donation</span>
@@ -249,7 +249,7 @@
         </div>
       </details>
 
-      <details class="drawer-section">
+      <details class="drawer-section" id="bankSection">
         <summary>
           <span class="drawer-section-no">03</span>
           <span class="drawer-section-title">Bank Accounts</span>
@@ -280,7 +280,7 @@
         </div>
       </details>
 
-      <details class="drawer-section">
+      <details class="drawer-section" id="documentsSection">
         <summary>
           <span class="drawer-section-no">04</span>
           <span class="drawer-section-title">Documents</span>
@@ -1459,25 +1459,136 @@
 
     function runOnboardingTour() {
       if (typeof window.driver === 'undefined') return;
+
+      const drawerEl = document.getElementById('organizerDrawer');
+      const donationSection = document.getElementById('donationSection');
+      const bankSection = document.getElementById('bankSection');
+      const documentsSection = document.getElementById('documentsSection');
+
+      let teardowns = [];
+      function removeAllGates() {
+        teardowns.forEach(fn => fn());
+        teardowns = [];
+      }
+      function gate(el, event, fn) {
+        el.addEventListener(event, fn);
+        teardowns.push(() => el.removeEventListener(event, fn));
+      }
+
       const driverObj = window.driver.js.driver({
         showProgress: false,
         animate: true,
         onDestroyStarted: () => {
+          removeAllGates();
           markTourSeen();
           driverObj.destroy();
         },
         steps: [
+          // Step 1: Progress track — no gate
           {
             element: '#progressTrack',
             popover: {
               title: 'Your campaign progress',
-              description: 'This bar tracks how much has been raised toward the goal. Open the organizer drawer (the key icon) to record donations, add bank details, and manage your campaign.',
+              description: "This shows how much has been raised toward the goal. Let's walk through the Organizer Desk.",
               side: 'bottom',
+              align: 'center',
+            },
+          },
+          // Step 2: Open the desk — gated on drawer becoming open
+          {
+            element: '#drawerTab',
+            popover: {
+              title: 'Open the Organizer Desk',
+              description: "Click to open the Organizer Desk. To sign in again later you'll receive a one-time code by email — no password needed.",
+              showButtons: ['close'],
+              side: 'left',
+              align: 'center',
+            },
+            onHighlightStarted: () => {
+              removeAllGates();
+              if (!drawerEl) { driverObj.moveNext(); return; }
+              if (drawerEl.classList.contains('open')) { driverObj.moveNext(); return; }
+              const observer = new MutationObserver(() => {
+                if (drawerEl.classList.contains('open')) {
+                  observer.disconnect();
+                  driverObj.moveNext();
+                }
+              });
+              observer.observe(drawerEl, { attributes: true, attributeFilter: ['class'] });
+              teardowns.push(() => observer.disconnect());
+            },
+          },
+          // Step 3: §02 Record a Donation — gated on expanding
+          {
+            element: '#donationSection > summary',
+            popover: {
+              title: 'Record a Donation',
+              description: "Expand this section to log each donation to your campaign's ledger.",
+              showButtons: ['close'],
+              side: 'top',
+              align: 'start',
+            },
+            onHighlightStarted: () => {
+              removeAllGates();
+              if (!donationSection) { driverObj.moveNext(); return; }
+              if (donationSection.open) { driverObj.moveNext(); return; }
+              gate(donationSection, 'toggle', () => {
+                if (donationSection.open) { removeAllGates(); driverObj.moveNext(); }
+              });
+            },
+          },
+          // Step 4: §03 Bank Accounts — gated on expanding
+          {
+            element: '#bankSection > summary',
+            popover: {
+              title: 'Bank Accounts',
+              description: 'Expand this to add your bank details so donors know where to send funds.',
+              showButtons: ['close'],
+              side: 'top',
+              align: 'start',
+            },
+            onHighlightStarted: () => {
+              removeAllGates();
+              if (!bankSection) { driverObj.moveNext(); return; }
+              if (bankSection.open) { driverObj.moveNext(); return; }
+              gate(bankSection, 'toggle', () => {
+                if (bankSection.open) { removeAllGates(); driverObj.moveNext(); }
+              });
+            },
+          },
+          // Step 5: §04 Documents — gated on expanding
+          {
+            element: '#documentsSection > summary',
+            popover: {
+              title: 'Documents',
+              description: 'Expand this to attach supporting documents to your campaign.',
+              showButtons: ['close'],
+              side: 'top',
+              align: 'start',
+            },
+            onHighlightStarted: () => {
+              removeAllGates();
+              if (!documentsSection) { driverObj.moveNext(); return; }
+              if (documentsSection.open) { driverObj.moveNext(); return; }
+              gate(documentsSection, 'toggle', () => {
+                if (documentsSection.open) { removeAllGates(); driverObj.moveNext(); }
+              });
+            },
+          },
+          // Step 6: Done — no gate
+          {
+            element: '#organizerDrawer',
+            popover: {
+              title: "You're all set",
+              description: 'You can reopen the Organizer Desk anytime using the tab on the side of the page.',
+              showButtons: ['next'],
+              side: 'left',
               align: 'center',
             },
           },
         ],
       });
+
       driverObj.drive();
     }
 
