@@ -26,6 +26,7 @@
 
     <!-- Campaign Header -->
     <div class="campaign-header" id="campaignHeader">
+      <div class="campaign-badges" id="campaignBadges"></div>
       <h1 id="campaignTitle">Loading…</h1>
       <p class="lede" id="campaignDescription"></p>
     </div>
@@ -36,12 +37,26 @@
       <div class="amount-target">raised of <span id="targetAmount">$0</span> goal</div>
 
       <!-- Progress Bar -->
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+      <div class="progress-track" id="progressTrack">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+        </div>
+        <div class="progress-marker" id="progressMarker" style="display: none;">
+          <span class="progress-marker__flag" id="progressMarkerFlag">Original goal</span>
+        </div>
       </div>
       <div class="progress-meta">
         <span class="funded" id="progressLabel">0% funded</span>
         <span id="lastUpdatedLabel"></span>
+      </div>
+
+      <!-- Goal achieved / extra-mile message -->
+      <div class="goal-banner" id="goalBanner" style="display: none;">
+        <span class="goal-banner__seal" aria-hidden="true">&#10003;</span>
+        <div class="goal-banner__text">
+          <span class="goal-banner__title" id="goalBannerTitle"></span>
+          <span class="goal-banner__sub" id="goalBannerSub"></span>
+        </div>
       </div>
     </div>
 
@@ -144,9 +159,65 @@
         </form>
       </div>
 
-      <details class="drawer-section" open>
+      <details class="drawer-section" id="campaignDetailsSection" open>
         <summary>
           <span class="drawer-section-no">01</span>
+          <span class="drawer-section-title">Campaign Details</span>
+          <span class="drawer-section-marker" aria-hidden="true"></span>
+        </summary>
+        <div class="drawer-section-body">
+          <form id="campaignSettingsForm">
+            <div class="form-group">
+              <label for="editCampaignName">Campaign Name</label>
+              <input type="text" id="editCampaignName" maxlength="140" placeholder="Campaign name" required>
+            </div>
+
+            <div class="form-group">
+              <label class="ledger-check">
+                <input type="checkbox" id="editZakatApplicable">
+                <span class="ledger-check__box" aria-hidden="true"></span>
+                <span class="ledger-check__text">
+                  <span class="ledger-check__title">Zakat Applicable</span>
+                  <small class="ledger-check__hint">Show a Zakat badge on the public campaign page.</small>
+                </span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label class="ledger-check">
+                <input type="checkbox" id="editTestCampaign">
+                <span class="ledger-check__box" aria-hidden="true"></span>
+                <span class="ledger-check__text">
+                  <span class="ledger-check__title">Test Campaign</span>
+                  <small class="ledger-check__hint">Keep this campaign off the home page. The direct link still works.</small>
+                </span>
+              </label>
+            </div>
+
+            <button type="submit" class="block-btn">Save Details</button>
+          </form>
+
+          <div class="drawer-subsection">
+            <span class="drawer-subsection-label">Goal Extension</span>
+            <p class="drawer-note">Surpassed your goal? Add an extension to go the extra mile — your original goal stays on record as achieved.</p>
+            <form id="extensionForm">
+              <div class="form-group">
+                <label for="extendedGoal">Extended Goal (<span id="extensionCurrencyLabel">USD</span>)</label>
+                <input type="number" id="extendedGoal" step="0.01" min="0" placeholder="Higher than the original goal">
+                <small class="hint" id="extensionHint"></small>
+              </div>
+              <div class="extension-actions">
+                <button type="submit" class="block-btn">Set Extension</button>
+                <button type="button" class="secondary-btn" id="clearExtensionBtn" style="display: none;">Remove extension</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </details>
+
+      <details class="drawer-section">
+        <summary>
+          <span class="drawer-section-no">02</span>
           <span class="drawer-section-title">Record a Donation</span>
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
@@ -177,7 +248,7 @@
 
       <details class="drawer-section">
         <summary>
-          <span class="drawer-section-no">02</span>
+          <span class="drawer-section-no">03</span>
           <span class="drawer-section-title">Bank Accounts</span>
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
@@ -208,7 +279,7 @@
 
       <details class="drawer-section">
         <summary>
-          <span class="drawer-section-no">03</span>
+          <span class="drawer-section-no">04</span>
           <span class="drawer-section-title">Documents</span>
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
@@ -228,7 +299,7 @@
 
       <details class="drawer-section" id="dangerZoneSection" style="display: none;">
         <summary>
-          <span class="drawer-section-no">04</span>
+          <span class="drawer-section-no">05</span>
           <span class="drawer-section-title">Danger Zone</span>
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
@@ -315,11 +386,10 @@
         document.getElementById('campaignTitle').textContent = response.name;
         document.title = `${response.name} — Nasr`;
         document.getElementById('accumulatedAmount').textContent = formatCurrency(response.accumulated_amount, campaignCurrency);
-        document.getElementById('targetAmount').textContent = formatCurrency(response.target_amount, campaignCurrency);
 
-        const progress = response.progressPercentage;
-        document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
-        document.getElementById('progressLabel').textContent = Math.round(progress) + '% funded';
+        renderGoalState(response);
+        renderBadges(response);
+        populateSettingsForm(response);
 
         const lbl = document.getElementById('lastUpdatedLabel');
         if (response.last_donation_at) {
@@ -347,6 +417,153 @@
         console.error(error);
       }
     }
+
+    // ==================== Goal state, badges, extension ====================
+
+    // Holds the latest goal figures so form handlers can validate locally.
+    let goalState = { originalGoal: 0, extended: null, raised: 0 };
+
+    function renderGoalState(response) {
+      const raised = Number(response.accumulated_amount) || 0;
+      const originalGoal = Number(response.target_amount) || 0;
+      const extended = response.extended_target && response.extended_target > originalGoal
+        ? Number(response.extended_target)
+        : null;
+      const effectiveGoal = extended || originalGoal;
+      const originalMet = originalGoal > 0 && raised >= originalGoal;
+      const effectiveMet = effectiveGoal > 0 && raised >= effectiveGoal;
+      const progress = Number(response.progressPercentage) || 0;
+
+      goalState = { originalGoal, extended, raised };
+
+      document.getElementById('targetAmount').textContent = formatCurrency(effectiveGoal, campaignCurrency);
+
+      // Progress fill. When extended, the run up to the original goal stays pine
+      // and everything past it turns gold — the "extra mile".
+      const fill = document.getElementById('progressFill');
+      fill.style.width = Math.min(progress, 100) + '%';
+      if (extended && raised > 0) {
+        const splitPct = Math.min((originalGoal / raised) * 100, 100);
+        fill.style.background =
+          `linear-gradient(90deg, var(--pine) 0 ${splitPct}%, var(--gold) ${splitPct}% 100%)`;
+      } else {
+        fill.style.background = '';
+      }
+
+      // Original-goal marker sits on the track only while an extension is active.
+      const marker = document.getElementById('progressMarker');
+      if (extended) {
+        marker.style.left = Math.min((originalGoal / effectiveGoal) * 100, 100) + '%';
+        marker.style.display = '';
+      } else {
+        marker.style.display = 'none';
+      }
+
+      const label = document.getElementById('progressLabel');
+      label.textContent = extended
+        ? Math.round(progress) + '% to extended goal'
+        : Math.round(progress) + '% funded';
+
+      // Goal banner — the celebratory / extra-mile message.
+      const banner = document.getElementById('goalBanner');
+      const title = document.getElementById('goalBannerTitle');
+      const sub = document.getElementById('goalBannerSub');
+      const seal = banner.querySelector('.goal-banner__seal');
+
+      if (effectiveMet) {
+        banner.style.display = '';
+        banner.classList.remove('goal-banner--extra');
+        seal.innerHTML = '&#10003;';
+        title.textContent = extended ? 'Extended goal achieved!' : 'Goal achieved!';
+        sub.textContent = extended
+          ? 'Alhamdulillah — every extra mile counted.'
+          : 'Alhamdulillah.';
+      } else if (originalMet && extended) {
+        banner.style.display = '';
+        banner.classList.add('goal-banner--extra');
+        seal.innerHTML = '&#10003;';
+        const remaining = effectiveGoal - raised;
+        title.textContent = 'Original goal achieved, Alhamdulillah.';
+        sub.textContent = `Now going the extra mile — ${formatCurrency(remaining, campaignCurrency)} to the extended goal.`;
+      } else {
+        banner.style.display = 'none';
+        banner.classList.remove('goal-banner--extra');
+      }
+    }
+
+    function renderBadges(response) {
+      const badges = document.getElementById('campaignBadges');
+      let html = '';
+      if (response.zakat_applicable) {
+        html += `<span class="zakat-badge"><span class="zakat-badge__glyph" aria-hidden="true">&#9770;</span>Zakat Applicable</span>`;
+      }
+      badges.innerHTML = html;
+    }
+
+    function populateSettingsForm(response) {
+      document.getElementById('editCampaignName').value = response.name || '';
+      document.getElementById('editZakatApplicable').checked = !!response.zakat_applicable;
+      document.getElementById('editTestCampaign').checked = !!response.test_campaign;
+      document.getElementById('extensionCurrencyLabel').textContent = campaignCurrency;
+
+      const extInput = document.getElementById('extendedGoal');
+      extInput.value = goalState.extended || '';
+      document.getElementById('extensionHint').textContent =
+        `Original goal: ${formatCurrency(goalState.originalGoal, campaignCurrency)} — an extension must be higher.`;
+      document.getElementById('clearExtensionBtn').style.display = goalState.extended ? '' : 'none';
+    }
+
+    // Save name + Zakat flag
+    document.getElementById('campaignSettingsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('editCampaignName').value.trim();
+      const zakatApplicable = document.getElementById('editZakatApplicable').checked;
+      const testCampaign = document.getElementById('editTestCampaign').checked;
+      if (!name) {
+        showMessage('message', 'Campaign name cannot be empty', 'error');
+        return;
+      }
+      try {
+        await apiCall(`/api/campaigns/${slug}`, 'PATCH', { name, zakatApplicable, testCampaign });
+        showMessage('message', 'Campaign details saved', 'success');
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to save details', 'error');
+      }
+    });
+
+    // Set goal extension
+    document.getElementById('extensionForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const val = document.getElementById('extendedGoal').value.trim();
+      if (!val) {
+        showMessage('message', 'Enter an extended goal amount', 'error');
+        return;
+      }
+      const parsed = parseFloat(val);
+      if (parsed <= goalState.originalGoal) {
+        showMessage('message', 'Extended goal must be higher than the original goal', 'error');
+        return;
+      }
+      try {
+        await apiCall(`/api/campaigns/${slug}`, 'PATCH', { extendedGoal: parsed });
+        showMessage('message', 'Goal extension set', 'success');
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to set extension', 'error');
+      }
+    });
+
+    document.getElementById('clearExtensionBtn').addEventListener('click', async () => {
+      if (!confirm('Remove the goal extension? Progress will return to the original goal.')) return;
+      try {
+        await apiCall(`/api/campaigns/${slug}`, 'PATCH', { extendedGoal: null });
+        showMessage('message', 'Extension removed', 'success');
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to remove extension', 'error');
+      }
+    });
 
     // ==================== Render donations ====================
 

@@ -14,7 +14,7 @@ const documentRoutes = require('./routes/documents');
 const bankDetailRoutes = require('./routes/bankDetails');
 
 const app = express();
-const PORT = process.env.DEV_PORT || 6000;
+const PORT = process.env.DEV_PORT || 3000;
 
 // Behind Cloud Functions / hosting, TLS is terminated upstream; trust the proxy
 // headers so req.protocol/host reflect the public URL used in og:url & og:image.
@@ -76,7 +76,9 @@ app.get('/', async (req, res) => {
   let campaigns = [];
   try {
     const raw = await firebase.getAllCampaigns();
-    campaigns = raw.map((c) => {
+    // Test campaigns stay off the public register; they're reachable only by
+    // their direct link.
+    campaigns = raw.filter((c) => !c.test_campaign).map((c) => {
       const target = Number(c.target_amount) || 0;
       const raised = Number(c.accumulated_amount) || 0;
       const pct = target > 0 ? Math.min(Math.round((raised / target) * 100), 100) : 0;

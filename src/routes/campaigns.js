@@ -21,7 +21,7 @@ function hashOtp(code) {
 router.post('/', async (req, res) => {
   try {
     const { firebase, email } = req.app.locals;
-    const { name, slug, targetAmount, currency, email: organizerEmail } = req.body;
+    const { name, slug, targetAmount, currency, email: organizerEmail, zakatApplicable, testCampaign } = req.body;
 
     if (!name || !slug || !targetAmount || !organizerEmail) {
       return res.status(400).json({ error: 'All fields are required' });
@@ -51,6 +51,8 @@ router.post('/', async (req, res) => {
       targetAmount: parsedTarget,
       currency: currencyCode,
       email: organizerEmail,
+      zakatApplicable: Boolean(zakatApplicable),
+      testCampaign: Boolean(testCampaign),
       codeHash: hashOtp(code),
       expiresAt: now + OTP_TTL_MS,
       attemptCount: 0,
@@ -111,6 +113,8 @@ router.post('/confirm', async (req, res) => {
       target_amount: pending.targetAmount,
       currency: pending.currency,
       accumulated_amount: 0,
+      zakat_applicable: Boolean(pending.zakatApplicable),
+      test_campaign: Boolean(pending.testCampaign),
       email: pending.email,
       created_at: now,
       updated_at: now,
@@ -159,7 +163,16 @@ router.get('/:slug', async (req, res) => {
     const donationsLimit = parseInt(req.query?.donationsLimit, 10);
     const pagedDonations = donationsLimit > 0 ? sortedDonations.slice(0, donationsLimit) : sortedDonations;
 
-    const progressPercentage = (campaign.accumulated_amount / campaign.target_amount) * 100;
+    // A goal extension raises the effective target while the original goal
+    // stays on record (and gets marked "achieved"). Progress tracks whichever
+    // target is currently in play.
+    const originalGoal = Number(campaign.target_amount) || 0;
+    const extendedTargetRaw = Number(campaign.extended_target) || 0;
+    const extendedTarget = extendedTargetRaw > originalGoal ? extendedTargetRaw : null;
+    const effectiveGoal = extendedTarget || originalGoal;
+    const progressPercentage = effectiveGoal > 0
+      ? (campaign.accumulated_amount / effectiveGoal) * 100
+      : 0;
 
     const lastDonationAt = donations.length > 0
       ? donations.reduce((latest, d) => {
@@ -173,6 +186,9 @@ router.get('/:slug', async (req, res) => {
       name: campaign.name,
       slug: campaign.slug,
       target_amount: campaign.target_amount,
+      extended_target: extendedTarget,
+      zakat_applicable: Boolean(campaign.zakat_applicable),
+      test_campaign: Boolean(campaign.test_campaign),
       currency: campaign.currency || 'USD',
       accumulated_amount: campaign.accumulated_amount,
       created_at: campaign.created_at,
@@ -182,6 +198,71 @@ router.get('/:slug', async (req, res) => {
       bank_details: bankDetails.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
       progressPercentage: Math.min(progressPercentage, 100),
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update editable campaign fields — name, Zakat flag, goal extension.
+// Session-gated like delete; only the campaign's own organizer may edit.
+router.patch('/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const fb = req.app.locals.firebase;
+
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== slug) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const campaign = await fb.getCampaign(slug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+    if (campaign.id !== session.campaignId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { name, zakatApplicable, testCampaign, extendedGoal } = req.body;
+    const updates = {};
+
+    if (name !== undefined) {
+      const trimmed = String(name).trim();
+      if (!trimmed) return res.status(400).json({ error: 'Campaign name cannot be empty' });
+      if (trimmed.length > 140) return res.status(400).json({ error: 'Campaign name is too long (140 characters max)' });
+      updates.name = trimmed;
+    }
+
+    if (zakatApplicable !== undefined) {
+      updates.zakat_applicable = Boolean(zakatApplicable);
+    }
+
+    if (testCampaign !== undefined) {
+      updates.test_campaign = Boolean(testCampaign);
+    }
+
+    if (extendedGoal !== undefined) {
+      if (extendedGoal === null || extendedGoal === '') {
+        updates.extended_target = null; // remove the extension
+      } else {
+        const parsed = parseFloat(extendedGoal);
+        if (!parsed || parsed <= 0) {
+          return res.status(400).json({ error: 'Extended goal must be greater than 0' });
+        }
+        if (parsed <= Number(campaign.target_amount)) {
+          return res.status(400).json({ error: 'Extended goal must be higher than the original goal' });
+        }
+        updates.extended_target = parsed;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No changes provided' });
+    }
+
+    updates.updated_at = new Date().toISOString();
+    await fb.updateCampaign(slug, updates);
+
+    res.json({ success: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });

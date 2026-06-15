@@ -2050,3 +2050,263 @@ body.admin-mode .drawer-foot { display: flex; }
 .drawer-title--in { display: none; }
 body.admin-mode .drawer-title--out { display: none; }
 body.admin-mode .drawer-title--in { display: inline; }
+
+/* ============================================================
+   Zakat flag · goal achieved · goal extension
+   Gold is the house "achievement / extra" accent — it carries
+   the Zakat badge, the goal-met seal, and the extra-mile run.
+   ============================================================ */
+
+/* ---------- Header badges ---------- */
+.campaign-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.campaign-badges:empty {
+  display: none;
+}
+
+.zakat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: rgba(176, 125, 44, 0.12);
+  border: 1px solid rgba(176, 125, 44, 0.32);
+  border-radius: 99px;
+  padding: 5px 12px 5px 10px;
+}
+
+.zakat-badge__glyph {
+  font-size: 13px;
+  line-height: 1;
+  transform: translateY(0.5px);
+}
+
+/* ---------- Ledger checkbox (custom) ---------- */
+.ledger-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.ledger-check input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ledger-check__box {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: 5px;
+  background: var(--card);
+  position: relative;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.ledger-check__box::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 3px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--card);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ledger-check input:checked + .ledger-check__box {
+  background: var(--pine);
+  border-color: var(--pine);
+}
+
+.ledger-check input:checked + .ledger-check__box::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.ledger-check input:focus-visible + .ledger-check__box {
+  box-shadow: 0 0 0 3px rgba(30, 90, 69, 0.18);
+}
+
+.ledger-check__text {
+  display: block;
+}
+
+.ledger-check__title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.ledger-check__hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink-faint);
+  line-height: 1.45;
+}
+
+/* ---------- Progress track + original-goal marker ---------- */
+.progress-track {
+  position: relative;
+  margin: 24px 0 10px;
+}
+
+.progress-track .progress-bar {
+  margin: 0;
+}
+
+.progress-marker {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  width: 2px;
+  background: var(--gold);
+  border-radius: 2px;
+  transform: translateX(-50%);
+  transition: left 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.progress-marker__flag {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: var(--paper);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ---------- Goal achieved / extra-mile banner ---------- */
+.goal-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  margin: 20px 0 4px;
+  padding: 16px 20px;
+  background: var(--pine-wash);
+  border: 1px solid #c7dbcf;
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+
+.goal-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--pine);
+}
+
+.goal-banner--extra {
+  background: rgba(176, 125, 44, 0.08);
+  border-color: rgba(176, 125, 44, 0.34);
+}
+
+.goal-banner--extra::before {
+  background: var(--gold);
+}
+
+.goal-banner__seal {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--pine);
+  color: var(--card);
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px -4px rgba(30, 90, 69, 0.55);
+}
+
+.goal-banner--extra .goal-banner__seal {
+  background: var(--gold);
+  box-shadow: 0 4px 12px -4px rgba(176, 125, 44, 0.55);
+}
+
+.goal-banner__text {
+  display: block;
+}
+
+.goal-banner__title {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-style: italic;
+  font-size: 19px;
+  line-height: 1.2;
+  color: var(--pine-deep);
+}
+
+.goal-banner--extra .goal-banner__title {
+  color: #7c5715;
+}
+
+.goal-banner__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+/* ---------- Drawer sub-section (goal extension) ---------- */
+.drawer-subsection {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--hairline-strong);
+}
+
+.drawer-subsection-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.extension-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
