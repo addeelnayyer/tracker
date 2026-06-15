@@ -33,7 +33,7 @@
     </div>
 
     <!-- Main Amount Display -->
-    <div style="text-align: center;">
+    <div style="text-align: center;" id="progressSummary">
       <div class="amount-display" id="accumulatedAmount">$0</div>
       <div class="amount-target">raised of <span id="targetAmount">$0</span> goal</div>
 
@@ -69,7 +69,7 @@
     </div>
 
     <!-- Bank Transfer Details -->
-    <div class="bank-section" id="bankSection" style="display: none;">
+    <div class="bank-section" id="publicBankSection" style="display: none;">
       <div class="section-label">Bank Transfer Details</div>
       <div class="bank-list" id="bankList"></div>
     </div>
@@ -982,7 +982,7 @@
 
     function renderBankDetails(bankDetails) {
       bankDetailsCount = bankDetails.length;
-      const section = document.getElementById('bankSection');
+      const section = document.getElementById('publicBankSection');
       const list = document.getElementById('bankList');
 
       if (!bankDetails.length) {
@@ -1463,6 +1463,11 @@
     function runOnboardingTour({ markSeen = true } = {}) {
       if (typeof window.driver === 'undefined') return;
 
+      // If launched from the open desk (e.g. the footer "Replay tour" link),
+      // close it first: step 1 anchors to the public-page progress summary and
+      // step 2 asks the user to open the desk — both assume it starts closed.
+      closeDrawer();
+
       // Scroll the drawer-body scroll container to bring a child element into view,
       // then return the element if it is now in the viewport, or null to trigger
       // Driver.js's built-in anchorless (centered) degrade on very small screens.
@@ -1474,6 +1479,17 @@
         return (r.width > 0 && r.height > 0 &&
                 r.top < window.innerHeight && r.bottom > 0 &&
                 r.left < window.innerWidth && r.right > 0) ? el : null;
+      }
+
+      // Scroll the drawer-body so a section's summary sits at the top of the
+      // scroll area. Called when a section expands during the tour so its form
+      // is shown from the top and the next (collapsed) section below it comes
+      // into view before we highlight it.
+      function scrollSectionToTop(section) {
+        const body = document.querySelector('.drawer-body');
+        if (!body || !section) return;
+        const summary = section.querySelector('summary') || section;
+        body.scrollTop += summary.getBoundingClientRect().top - body.getBoundingClientRect().top;
       }
 
       const drawerEl = document.getElementById('organizerDrawer');
@@ -1500,9 +1516,9 @@
           driverObj.destroy();
         },
         steps: [
-          // Step 1: Progress track — no gate
+          // Step 1: Progress summary — no gate
           {
-            element: '#progressTrack',
+            element: '#progressSummary',
             popover: {
               title: 'Your campaign progress',
               description: "This shows how much has been raised toward the goal. Let's walk through the Organizer Desk.",
@@ -1527,7 +1543,28 @@
               const observer = new MutationObserver(() => {
                 if (drawerEl.classList.contains('open')) {
                   observer.disconnect();
-                  driverObj.moveNext();
+                  // The drawer slides in over a ~0.45s transform transition.
+                  // Wait for it to finish so the drawer's sections have settled
+                  // rects before the next step tries to anchor to one — otherwise
+                  // resolveDrawerEl reads an off-screen rect and Driver.js degrades
+                  // to a centered, anchorless popover.
+                  let advanced = false;
+                  const advance = () => {
+                    if (advanced) return;
+                    advanced = true;
+                    clearTimeout(fallback);
+                    drawerEl.removeEventListener('transitionend', onEnd);
+                    driverObj.moveNext();
+                  };
+                  const onEnd = (e) => {
+                    if (e.target === drawerEl && e.propertyName === 'transform') advance();
+                  };
+                  drawerEl.addEventListener('transitionend', onEnd);
+                  const fallback = setTimeout(advance, 600);
+                  teardowns.push(() => {
+                    clearTimeout(fallback);
+                    drawerEl.removeEventListener('transitionend', onEnd);
+                  });
                 }
               });
               observer.observe(drawerEl, { attributes: true, attributeFilter: ['class'] });
@@ -1549,7 +1586,7 @@
               if (!donationSection) { driverObj.moveNext(); return; }
               if (donationSection.open) { driverObj.moveNext(); return; }
               gate(donationSection, 'toggle', () => {
-                if (donationSection.open) { removeAllGates(); driverObj.moveNext(); }
+                if (donationSection.open) { removeAllGates(); scrollSectionToTop(donationSection); driverObj.moveNext(); }
               });
             },
           },
@@ -1568,7 +1605,7 @@
               if (!bankSection) { driverObj.moveNext(); return; }
               if (bankSection.open) { driverObj.moveNext(); return; }
               gate(bankSection, 'toggle', () => {
-                if (bankSection.open) { removeAllGates(); driverObj.moveNext(); }
+                if (bankSection.open) { removeAllGates(); scrollSectionToTop(bankSection); driverObj.moveNext(); }
               });
             },
           },
@@ -1587,7 +1624,7 @@
               if (!documentsSection) { driverObj.moveNext(); return; }
               if (documentsSection.open) { driverObj.moveNext(); return; }
               gate(documentsSection, 'toggle', () => {
-                if (documentsSection.open) { removeAllGates(); driverObj.moveNext(); }
+                if (documentsSection.open) { removeAllGates(); scrollSectionToTop(documentsSection); driverObj.moveNext(); }
               });
             },
           },
