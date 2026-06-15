@@ -30,14 +30,14 @@ function createFakeDb(seedCampaigns = {}) {
     async setCampaign(slug, data) {
       campaigns.set(slug, { ...data });
     },
-    async getOtpState(slug) {
-      return otpStates.get(slug) ?? null;
+    async getOtpState(slug, emailHash) {
+      return otpStates.get(`${slug}/${emailHash}`) ?? null;
     },
-    async setOtpState(slug, state) {
-      otpStates.set(slug, { ...state });
+    async setOtpState(slug, emailHash, state) {
+      otpStates.set(`${slug}/${emailHash}`, { ...state });
     },
-    async clearOtpState(slug) {
-      otpStates.delete(slug);
+    async clearOtpState(slug, emailHash) {
+      otpStates.delete(`${slug}/${emailHash}`);
     },
 
     // ── Pending signups ──
@@ -135,8 +135,8 @@ function createFakeDb(seedCampaigns = {}) {
     },
 
     // test helper: read otp state directly
-    _getOtpState(slug) {
-      return otpStates.get(slug) ?? null;
+    _getOtpState(slug, emailHash) {
+      return otpStates.get(`${slug}/${emailHash}`) ?? null;
     },
     _getCampaign(slug) {
       return campaigns.get(slug) ?? null;
@@ -173,8 +173,8 @@ const CAMPAIGN = {
   accumulated_amount: 0,
 };
 
-function makeSessionCookie(campaignId, slug) {
-  const raw = sign({ campaignId, slug, exp: Date.now() + 60_000 });
+function makeSessionCookie(campaignId, slug, role = 'organizer', email = ORGANIZER_EMAIL) {
+  const raw = sign({ campaignId, slug, role, email, exp: Date.now() + 60_000 });
   return `__session=${raw}`;
 }
 
@@ -220,7 +220,7 @@ describe('OTP auth — tracer bullet', () => {
 
     const res = await request(app)
       .post('/api/auth/otp/verify')
-      .send({ campaignSlug: CAMPAIGN_SLUG, code: '000000' });
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL, code: '000000' });
 
     assert.equal(res.status, 400);
     const cookies = res.headers['set-cookie'] ?? [];
@@ -236,7 +236,7 @@ describe('OTP auth — tracer bullet', () => {
 
     const res = await request(app)
       .post('/api/auth/otp/verify')
-      .send({ campaignSlug: CAMPAIGN_SLUG, code });
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL, code });
 
     assert.equal(res.status, 200);
     assert.equal(res.body.success, true);
@@ -252,7 +252,7 @@ describe('OTP auth — tracer bullet', () => {
 
     const verifyRes = await request(app)
       .post('/api/auth/otp/verify')
-      .send({ campaignSlug: CAMPAIGN_SLUG, code: fakeEmail.lastCode });
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL, code: fakeEmail.lastCode });
 
     const sessionCookie = verifyRes.headers['set-cookie'].find(c => c.startsWith('__session='));
     const cookieValue = sessionCookie.split(';')[0]; // strip flags
@@ -301,7 +301,7 @@ describe('OTP auth — tracer bullet', () => {
     for (let i = 0; i < 4; i++) {
       const r = await request(app)
         .post('/api/auth/otp/verify')
-        .send({ campaignSlug: CAMPAIGN_SLUG, code: '000000' });
+        .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL, code: '000000' });
       assert.equal(r.status, 400);
       assert.equal(r.body.error, 'Invalid code');
     }
@@ -309,7 +309,7 @@ describe('OTP auth — tracer bullet', () => {
     // 5th attempt — code is voided
     const finalAttempt = await request(app)
       .post('/api/auth/otp/verify')
-      .send({ campaignSlug: CAMPAIGN_SLUG, code: '000000' });
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL, code: '000000' });
     assert.equal(finalAttempt.status, 400);
     assert.match(finalAttempt.body.error, /Too many failed attempts/);
 
@@ -317,7 +317,7 @@ describe('OTP auth — tracer bullet', () => {
     const correctCode = fakeEmail.lastCode;
     const afterVoid = await request(app)
       .post('/api/auth/otp/verify')
-      .send({ campaignSlug: CAMPAIGN_SLUG, code: correctCode });
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL, code: correctCode });
     assert.equal(afterVoid.status, 400);
   });
 
@@ -559,6 +559,39 @@ describe('Session-status endpoint', () => {
       .set('Cookie', cookie);
     assert.equal(res.status, 200);
     assert.equal(res.body.authenticated, false);
+  });
+
+  test('status returns role: organizer for a session with role organizer', async () => {
+    const cookie = makeSessionCookie(CAMPAIGN.id, CAMPAIGN_SLUG, 'organizer', ORGANIZER_EMAIL);
+    const res = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', cookie);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.authenticated, true);
+    assert.equal(res.body.role, 'organizer');
+  });
+
+  test('OTP verify with correct code creates session with role: organizer (status returns role)', async () => {
+    await request(app)
+      .post('/api/auth/otp/request')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL });
+
+    const verifyRes = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL, code: app.locals.email.lastCode });
+
+    assert.equal(verifyRes.status, 200);
+    const sessionCookie = verifyRes.headers['set-cookie'].find(c => c.startsWith('__session='));
+    assert.ok(sessionCookie, 'session cookie must be set');
+
+    const cookieValue = sessionCookie.split(';')[0];
+    const statusRes = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', cookieValue);
+
+    assert.equal(statusRes.status, 200);
+    assert.equal(statusRes.body.authenticated, true);
+    assert.equal(statusRes.body.role, 'organizer');
   });
 });
 

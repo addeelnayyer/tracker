@@ -126,7 +126,7 @@ router.post('/confirm', async (req, res) => {
     await firebase.setCampaign(pending.slug, campaignData);
     await firebase.clearPendingSignup(token);
 
-    cookieSession.setSessionCookie(res, { campaignId, slug: pending.slug });
+    cookieSession.setSessionCookie(res, { campaignId, slug: pending.slug, role: 'organizer', email: pending.email });
     res.json({ success: true, slug: pending.slug });
   } catch (err) {
     console.error(err);

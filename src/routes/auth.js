@@ -22,6 +22,10 @@ function hashOtp(code) {
   return crypto.createHash('sha256').update(String(code)).digest('hex');
 }
 
+function hashEmail(email) {
+  return crypto.createHash('sha256').update(String(email).toLowerCase()).digest('hex');
+}
+
 // ─── OTP request ──────────────────────────────────────────────────────────────
 
 router.post('/otp/request', async (req, res) => {
@@ -41,7 +45,8 @@ router.post('/otp/request', async (req, res) => {
     }
 
     const now = Date.now();
-    const state = (await firebase.getOtpState(campaignSlug)) || {};
+    const emailHash = hashEmail(submittedEmail);
+    const state = (await firebase.getOtpState(campaignSlug, emailHash)) || {};
 
     if (state.lastSentAt && now - state.lastSentAt < RESEND_COOLDOWN_MS) {
       return res.status(429).json(NEUTRAL_MSG);
@@ -56,7 +61,7 @@ router.post('/otp/request', async (req, res) => {
     }
 
     const code = generateOtp();
-    await firebase.setOtpState(campaignSlug, {
+    await firebase.setOtpState(campaignSlug, emailHash, {
       codeHash: hashOtp(code),
       expiresAt: now + OTP_TTL_MS,
       attemptCount: 0,
@@ -79,15 +84,16 @@ router.post('/otp/request', async (req, res) => {
 router.post('/otp/verify', async (req, res) => {
   try {
     const { firebase } = req.app.locals;
-    const { campaignSlug, code } = req.body;
+    const { campaignSlug, email: submittedEmail, code } = req.body;
 
-    if (!campaignSlug || code === undefined) {
+    if (!campaignSlug || !submittedEmail || code === undefined) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const emailHash = hashEmail(submittedEmail);
     const [campaign, state] = await Promise.all([
       firebase.getCampaign(campaignSlug),
-      firebase.getOtpState(campaignSlug),
+      firebase.getOtpState(campaignSlug, emailHash),
     ]);
 
     if (!campaign) {
@@ -106,15 +112,15 @@ router.post('/otp/verify', async (req, res) => {
     if (!match) {
       const attempts = (state.attemptCount || 0) + 1;
       if (attempts >= MAX_VERIFY_ATTEMPTS) {
-        await firebase.clearOtpState(campaignSlug);
+        await firebase.clearOtpState(campaignSlug, emailHash);
         return res.status(400).json({ error: 'Too many failed attempts, request a new code' });
       }
-      await firebase.setOtpState(campaignSlug, { ...state, attemptCount: attempts });
+      await firebase.setOtpState(campaignSlug, emailHash, { ...state, attemptCount: attempts });
       return res.status(400).json({ error: 'Invalid code' });
     }
 
-    await firebase.clearOtpState(campaignSlug);
-    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
+    await firebase.clearOtpState(campaignSlug, emailHash);
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug, role: 'organizer', email: campaign.email });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -129,11 +135,11 @@ router.get('/status', async (req, res) => {
     const session = cookieSession.getSession(req);
     const slug = req.query?.slug;
     if (session && session.slug === slug) {
-      cookieSession.setSessionCookie(res, { campaignId: session.campaignId, slug: session.slug });
+      cookieSession.setSessionCookie(res, { campaignId: session.campaignId, slug: session.slug, role: session.role, email: session.email });
       const { firebase } = req.app.locals;
       const campaign = await firebase.getCampaign(slug);
       const tourPending = !campaign?.tour_seen_at;
-      return res.json({ authenticated: true, tourPending });
+      return res.json({ authenticated: true, tourPending, role: session.role });
     }
     return res.json({ authenticated: false });
   } catch (err) {

@@ -248,17 +248,17 @@ const deleteBankDetail = async (campaignId, bankDetailId) => {
   await db.ref(`bank_details/${campaignId}/${bankDetailId}`).remove();
 };
 
-const getOtpState = async (slug) => {
-  const snapshot = await db.ref(`otp_codes/${slug}`).once('value');
+const getOtpState = async (slug, emailHash) => {
+  const snapshot = await db.ref(`otp_state/${slug}/${emailHash}`).once('value');
   return snapshot.val();
 };
 
-const setOtpState = async (slug, state) => {
-  await db.ref(`otp_codes/${slug}`).set(state);
+const setOtpState = async (slug, emailHash, state) => {
+  await db.ref(`otp_state/${slug}/${emailHash}`).set(state);
 };
 
-const clearOtpState = async (slug) => {
-  await db.ref(`otp_codes/${slug}`).remove();
+const clearOtpState = async (slug, emailHash) => {
+  await db.ref(`otp_state/${slug}/${emailHash}`).remove();
 };
 
 const getPendingSignup = async (token) => {
