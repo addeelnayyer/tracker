@@ -14,7 +14,7 @@ const documentRoutes = require('./routes/documents');
 const bankDetailRoutes = require('./routes/bankDetails');
 
 const app = express();
-const PORT = process.env.DEV_PORT || 3000;
+const PORT = process.env.DEV_PORT || 6000;
 
 // Behind Cloud Functions / hosting, TLS is terminated upstream; trust the proxy
 // headers so req.protocol/host reflect the public URL used in og:url & og:image.
