@@ -334,7 +334,7 @@
     </div>
 
     <footer class="drawer-foot">
-      <span class="drawer-foot-note">Signed in as organizer</span>
+      <span class="drawer-foot-note" id="drawerFootNote">Signed in as organizer</span>
       <div class="drawer-foot-actions">
         <button class="link-btn" type="button" id="replayTourBtn" onclick="runOnboardingTour({ markSeen: false })">Replay tour</button>
         <button class="secondary-btn drawer-logout" type="button" onclick="logoutAdmin()">Log Out</button>
@@ -613,7 +613,7 @@
         </label>`;
       }
 
-      const adminActions = isAdmin ? `
+      const adminActions = (isAdmin && userRole === 'organizer') ? `
         <button class="edit-btn" type="button" data-edit-id="${donation.id}">Edit</button>
         <button class="delete-btn" type="button" data-delete-id="${donation.id}">Delete</button>
       ` : '';
@@ -992,7 +992,7 @@
 
     function updateDangerZone() {
       const isEmpty = totalDonationsCount === 0 && bankDetailsCount === 0 && galleryDocs.length === 0;
-      document.getElementById('dangerZoneSection').style.display = isEmpty ? '' : 'none';
+      document.getElementById('dangerZoneSection').style.display = (isEmpty && userRole === 'organizer') ? '' : 'none';
     }
 
     document.getElementById('deleteCampaignBtn').addEventListener('click', async () => {
@@ -1181,15 +1181,16 @@
       }
 
       section.style.display = 'block';
-      gallery.classList.toggle('reorderable', isAdmin);
-      hint.style.display = isAdmin && documents.length > 1 ? 'block' : 'none';
+      const isOrganizer = isAdmin && userRole === 'organizer';
+      gallery.classList.toggle('reorderable', isOrganizer);
+      hint.style.display = isOrganizer && documents.length > 1 ? 'block' : 'none';
       galleryImages = documents.filter(d => (d.mime_type || '').startsWith('image/'));
 
       gallery.innerHTML = documents.map(doc => {
-        const deleteBtn = isAdmin
+        const deleteBtn = isOrganizer
           ? `<button class="doc-tile-delete" data-doc-id="${doc.id}" aria-label="Delete ${escapeHtml(doc.name)}">&#10005;</button>`
           : '';
-        const dragAttr = isAdmin ? ' draggable="true"' : '';
+        const dragAttr = isOrganizer ? ' draggable="true"' : '';
 
         if ((doc.mime_type || '').startsWith('image/')) {
           const index = galleryImages.findIndex(img => img.id === doc.id);
@@ -1471,12 +1472,19 @@
     function setAdminMode(on) {
       isAdmin = on;
       document.body.classList.toggle('admin-mode', on);
-      const membersSection = document.getElementById('membersSection');
+      const isOrganizer = on && userRole === 'organizer';
+
+      document.getElementById('campaignDetailsSection').style.display = on ? (isOrganizer ? '' : 'none') : '';
+      document.getElementById('donationSection').style.display = on ? (isOrganizer ? '' : 'none') : '';
+      document.getElementById('documentsSection').style.display = on ? (isOrganizer ? '' : 'none') : '';
+      document.getElementById('membersSection').style.display = isOrganizer ? '' : 'none';
+
+      const footNote = document.getElementById('drawerFootNote');
+      if (footNote && on) footNote.textContent = `Signed in as ${userRole || 'organizer'}`;
+
       if (on) {
-        membersSection.style.display = userRole === 'organizer' ? '' : 'none';
-        if (userRole === 'organizer') loadMembers();
+        if (isOrganizer) loadMembers();
       } else {
-        membersSection.style.display = 'none';
         // Reset OTP flow so the email + Send Code form is shown again on logout
         document.getElementById('otpVerifyForm').style.display = 'none';
         document.getElementById('otpRequestForm').style.display = 'block';
