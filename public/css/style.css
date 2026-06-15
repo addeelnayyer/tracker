@@ -2327,3 +2327,39 @@ body.admin-mode .drawer-title--in { display: inline; }
   flex-direction: column;
   gap: 8px;
 }
+
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.member-row:last-of-type {
+  border-bottom: none;
+}
+
+.member-email {
+  font-size: 0.9rem;
+  color: var(--pine-deep);
+  word-break: break-all;
+  flex: 1;
+}
+
+.remove-member-btn {
+  flex-shrink: 0;
+  width: auto;
+  margin-top: 0;
+  padding: 5px 14px;
+  font-size: 0.8rem;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.remove-member-btn:hover {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  border-color: var(--danger);
+  box-shadow: none;
+}
