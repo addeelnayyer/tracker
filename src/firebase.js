@@ -280,7 +280,25 @@ const deleteCampaign = async (slug, campaignId) => {
     db.ref(`donations/${campaignId}`).remove(),
     db.ref(`bank_details/${campaignId}`).remove(),
     db.ref(`documents/${campaignId}`).remove(),
+    db.ref(`members/${campaignId}`).remove(),
   ]);
+};
+
+const getMembers = async (campaignId) => {
+  const snapshot = await db.ref(`members/${campaignId}`).once('value');
+  const members = snapshot.val();
+  if (!members) return [];
+  return Object.keys(members).map(key => ({ id: key, ...members[key] }));
+};
+
+const addMember = async (campaignId, memberData) => {
+  const memberRef = db.ref(`members/${campaignId}`).push();
+  await memberRef.set(memberData);
+  return memberRef.key;
+};
+
+const removeMember = async (campaignId, memberId) => {
+  await db.ref(`members/${campaignId}/${memberId}`).remove();
 };
 
 module.exports = {
@@ -311,4 +329,7 @@ module.exports = {
   getPendingSignup,
   setPendingSignup,
   clearPendingSignup,
+  getMembers,
+  addMember,
+  removeMember,
 };

@@ -310,4 +310,71 @@ router.delete('/:slug', async (req, res) => {
   }
 });
 
+// ─── Member management (organizer-only) ──────────────────────────────────────
+
+function requireOrganizer(session, campaign) {
+  if (!session || session.role !== 'organizer') return false;
+  if (campaign && campaign.id !== session.campaignId) return false;
+  return true;
+}
+
+router.post('/:slug/members', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const fb = req.app.locals.firebase;
+
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== slug) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const campaign = await fb.getCampaign(slug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+
+    if (!requireOrganizer(session, campaign)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { email } = req.body;
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({ error: 'email is required' });
+    }
+
+    const memberId = await fb.addMember(campaign.id, {
+      email: email.trim(),
+      added_at: new Date().toISOString(),
+    });
+
+    res.json({ success: true, memberId });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/:slug/members/:memberId', async (req, res) => {
+  try {
+    const { slug, memberId } = req.params;
+    const fb = req.app.locals.firebase;
+
+    const session = cookieSession.getSession(req);
+    if (!session || session.slug !== slug) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const campaign = await fb.getCampaign(slug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+
+    if (!requireOrganizer(session, campaign)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    await fb.removeMember(campaign.id, memberId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
