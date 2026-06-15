@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,600&family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css?v=<%= cssVersion %>">
+  <link rel="stylesheet" href="/css/driver.css">
 </head>
 <body>
   <div class="container">
@@ -26,22 +27,37 @@
 
     <!-- Campaign Header -->
     <div class="campaign-header" id="campaignHeader">
+      <div class="campaign-badges" id="campaignBadges"></div>
       <h1 id="campaignTitle">Loading…</h1>
       <p class="lede" id="campaignDescription"></p>
     </div>
 
     <!-- Main Amount Display -->
-    <div style="text-align: center;">
+    <div style="text-align: center;" id="progressSummary">
       <div class="amount-display" id="accumulatedAmount">$0</div>
       <div class="amount-target">raised of <span id="targetAmount">$0</span> goal</div>
 
       <!-- Progress Bar -->
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+      <div class="progress-track" id="progressTrack">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+        </div>
+        <div class="progress-marker" id="progressMarker" style="display: none;">
+          <span class="progress-marker__flag" id="progressMarkerFlag">Original goal</span>
+        </div>
       </div>
       <div class="progress-meta">
         <span class="funded" id="progressLabel">0% funded</span>
         <span id="lastUpdatedLabel"></span>
+      </div>
+
+      <!-- Goal achieved / extra-mile message -->
+      <div class="goal-banner" id="goalBanner" style="display: none;">
+        <span class="goal-banner__seal" aria-hidden="true">&#10003;</span>
+        <div class="goal-banner__text">
+          <span class="goal-banner__title" id="goalBannerTitle"></span>
+          <span class="goal-banner__sub" id="goalBannerSub"></span>
+        </div>
       </div>
     </div>
 
@@ -53,7 +69,7 @@
     </div>
 
     <!-- Bank Transfer Details -->
-    <div class="bank-section" id="bankSection" style="display: none;">
+    <div class="bank-section" id="publicBankSection" style="display: none;">
       <div class="section-label">Bank Transfer Details</div>
       <div class="bank-list" id="bankList"></div>
     </div>
@@ -144,9 +160,67 @@
         </form>
       </div>
 
-      <details class="drawer-section" open>
+      <details class="drawer-section" id="campaignDetailsSection" open>
         <summary>
           <span class="drawer-section-no">01</span>
+          <span class="drawer-section-title">Campaign Details</span>
+          <span class="drawer-section-marker" aria-hidden="true"></span>
+        </summary>
+        <div class="drawer-section-body">
+          <form id="campaignSettingsForm">
+            <div class="form-group">
+              <label for="editCampaignName">Campaign Name</label>
+              <input type="text" id="editCampaignName" maxlength="140" placeholder="Campaign name" required>
+            </div>
+
+            <div class="form-group">
+              <label class="ledger-check">
+                <input type="checkbox" id="editZakatApplicable">
+                <span class="ledger-check__box" aria-hidden="true"></span>
+                <span class="ledger-check__text">
+                  <span class="ledger-check__title">Zakat Applicable</span>
+                  <small class="ledger-check__hint">Show a Zakat badge on the public campaign page.</small>
+                </span>
+              </label>
+            </div>
+
+            <% if (isLocalhost) { %>
+            <div class="form-group">
+              <label class="ledger-check">
+                <input type="checkbox" id="editTestCampaign">
+                <span class="ledger-check__box" aria-hidden="true"></span>
+                <span class="ledger-check__text">
+                  <span class="ledger-check__title">Test Campaign</span>
+                  <small class="ledger-check__hint">Keep this campaign off the home page. The direct link still works.</small>
+                </span>
+              </label>
+            </div>
+            <% } %>
+
+            <button type="submit" class="block-btn">Save Details</button>
+          </form>
+
+          <div class="drawer-subsection">
+            <span class="drawer-subsection-label">Goal Extension</span>
+            <p class="drawer-note">Surpassed your goal? Add an extension to go the extra mile — your original goal stays on record as achieved.</p>
+            <form id="extensionForm">
+              <div class="form-group">
+                <label for="extendedGoal">Extended Goal (<span id="extensionCurrencyLabel">USD</span>)</label>
+                <input type="number" id="extendedGoal" step="0.01" min="0" placeholder="Higher than the original goal">
+                <small class="hint" id="extensionHint"></small>
+              </div>
+              <div class="extension-actions">
+                <button type="submit" class="block-btn">Set Extension</button>
+                <button type="button" class="secondary-btn" id="clearExtensionBtn" style="display: none;">Remove extension</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </details>
+
+      <details class="drawer-section" id="donationSection">
+        <summary>
+          <span class="drawer-section-no">02</span>
           <span class="drawer-section-title">Record a Donation</span>
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
@@ -175,9 +249,9 @@
         </div>
       </details>
 
-      <details class="drawer-section">
+      <details class="drawer-section" id="bankSection">
         <summary>
-          <span class="drawer-section-no">02</span>
+          <span class="drawer-section-no">03</span>
           <span class="drawer-section-title">Bank Accounts</span>
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
@@ -206,9 +280,9 @@
         </div>
       </details>
 
-      <details class="drawer-section">
+      <details class="drawer-section" id="documentsSection">
         <summary>
-          <span class="drawer-section-no">03</span>
+          <span class="drawer-section-no">04</span>
           <span class="drawer-section-title">Documents</span>
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
@@ -228,7 +302,7 @@
 
       <details class="drawer-section" id="dangerZoneSection" style="display: none;">
         <summary>
-          <span class="drawer-section-no">04</span>
+          <span class="drawer-section-no">05</span>
           <span class="drawer-section-title">Danger Zone</span>
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
@@ -241,7 +315,10 @@
 
     <footer class="drawer-foot">
       <span class="drawer-foot-note">Signed in as organizer</span>
-      <button class="secondary-btn drawer-logout" type="button" onclick="logoutAdmin()">Log Out</button>
+      <div class="drawer-foot-actions">
+        <button class="link-btn" type="button" id="replayTourBtn" onclick="runOnboardingTour({ markSeen: false })">Replay tour</button>
+        <button class="secondary-btn drawer-logout" type="button" onclick="logoutAdmin()">Log Out</button>
+      </div>
     </footer>
   </aside>
 
@@ -253,6 +330,7 @@
     <p class="app-overlay__caption" id="appOverlayCaption">Sending code</p>
   </div>
 
+  <script src="/js/driver.iife.js"></script>
   <script src="/js/app.js"></script>
   <script>
     function showOverlay(caption) {
@@ -315,11 +393,10 @@
         document.getElementById('campaignTitle').textContent = response.name;
         document.title = `${response.name} — Nasr`;
         document.getElementById('accumulatedAmount').textContent = formatCurrency(response.accumulated_amount, campaignCurrency);
-        document.getElementById('targetAmount').textContent = formatCurrency(response.target_amount, campaignCurrency);
 
-        const progress = response.progressPercentage;
-        document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
-        document.getElementById('progressLabel').textContent = Math.round(progress) + '% funded';
+        renderGoalState(response);
+        renderBadges(response);
+        populateSettingsForm(response);
 
         const lbl = document.getElementById('lastUpdatedLabel');
         if (response.last_donation_at) {
@@ -347,6 +424,155 @@
         console.error(error);
       }
     }
+
+    // ==================== Goal state, badges, extension ====================
+
+    // Holds the latest goal figures so form handlers can validate locally.
+    let goalState = { originalGoal: 0, extended: null, raised: 0 };
+
+    function renderGoalState(response) {
+      const raised = Number(response.accumulated_amount) || 0;
+      const originalGoal = Number(response.target_amount) || 0;
+      const extended = response.extended_target && response.extended_target > originalGoal
+        ? Number(response.extended_target)
+        : null;
+      const effectiveGoal = extended || originalGoal;
+      const originalMet = originalGoal > 0 && raised >= originalGoal;
+      const effectiveMet = effectiveGoal > 0 && raised >= effectiveGoal;
+      const progress = Number(response.progressPercentage) || 0;
+
+      goalState = { originalGoal, extended, raised };
+
+      document.getElementById('targetAmount').textContent = formatCurrency(effectiveGoal, campaignCurrency);
+
+      // Progress fill. When extended, the run up to the original goal stays pine
+      // and everything past it turns gold — the "extra mile".
+      const fill = document.getElementById('progressFill');
+      fill.style.width = Math.min(progress, 100) + '%';
+      if (extended && raised > 0) {
+        const splitPct = Math.min((originalGoal / raised) * 100, 100);
+        fill.style.background =
+          `linear-gradient(90deg, var(--pine) 0 ${splitPct}%, var(--gold) ${splitPct}% 100%)`;
+      } else {
+        fill.style.background = '';
+      }
+
+      // Original-goal marker sits on the track only while an extension is active.
+      const marker = document.getElementById('progressMarker');
+      if (extended) {
+        marker.style.left = Math.min((originalGoal / effectiveGoal) * 100, 100) + '%';
+        marker.style.display = '';
+      } else {
+        marker.style.display = 'none';
+      }
+
+      const label = document.getElementById('progressLabel');
+      label.textContent = extended
+        ? Math.round(progress) + '% to extended goal'
+        : Math.round(progress) + '% funded';
+
+      // Goal banner — the celebratory / extra-mile message.
+      const banner = document.getElementById('goalBanner');
+      const title = document.getElementById('goalBannerTitle');
+      const sub = document.getElementById('goalBannerSub');
+      const seal = banner.querySelector('.goal-banner__seal');
+
+      if (effectiveMet) {
+        banner.style.display = '';
+        banner.classList.remove('goal-banner--extra');
+        seal.innerHTML = '&#10003;';
+        title.textContent = extended ? 'Extended goal achieved!' : 'Goal achieved!';
+        sub.textContent = extended
+          ? 'Alhamdulillah — every extra mile counted.'
+          : 'Alhamdulillah.';
+      } else if (originalMet && extended) {
+        banner.style.display = '';
+        banner.classList.add('goal-banner--extra');
+        seal.innerHTML = '&#10003;';
+        const remaining = effectiveGoal - raised;
+        title.textContent = 'Original goal achieved, Alhamdulillah.';
+        sub.textContent = `Now going the extra mile — ${formatCurrency(remaining, campaignCurrency)} to the extended goal.`;
+      } else {
+        banner.style.display = 'none';
+        banner.classList.remove('goal-banner--extra');
+      }
+    }
+
+    function renderBadges(response) {
+      const badges = document.getElementById('campaignBadges');
+      let html = '';
+      if (response.zakat_applicable) {
+        html += `<span class="zakat-badge"><span class="zakat-badge__glyph" aria-hidden="true">&#9770;</span>Zakat Applicable</span>`;
+      }
+      badges.innerHTML = html;
+    }
+
+    function populateSettingsForm(response) {
+      document.getElementById('editCampaignName').value = response.name || '';
+      document.getElementById('editZakatApplicable').checked = !!response.zakat_applicable;
+      if (document.getElementById('editTestCampaign')) {
+        document.getElementById('editTestCampaign').checked = !!response.test_campaign;
+      }
+      document.getElementById('extensionCurrencyLabel').textContent = campaignCurrency;
+
+      const extInput = document.getElementById('extendedGoal');
+      extInput.value = goalState.extended || '';
+      document.getElementById('extensionHint').textContent =
+        `Original goal: ${formatCurrency(goalState.originalGoal, campaignCurrency)} — an extension must be higher.`;
+      document.getElementById('clearExtensionBtn').style.display = goalState.extended ? '' : 'none';
+    }
+
+    // Save name + Zakat flag
+    document.getElementById('campaignSettingsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('editCampaignName').value.trim();
+      const zakatApplicable = document.getElementById('editZakatApplicable').checked;
+      const testCampaign = document.getElementById('editTestCampaign')?.checked ?? false;
+      if (!name) {
+        showMessage('message', 'Campaign name cannot be empty', 'error');
+        return;
+      }
+      try {
+        await apiCall(`/api/campaigns/${slug}`, 'PATCH', { name, zakatApplicable, testCampaign });
+        showMessage('message', 'Campaign details saved', 'success');
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to save details', 'error');
+      }
+    });
+
+    // Set goal extension
+    document.getElementById('extensionForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const val = document.getElementById('extendedGoal').value.trim();
+      if (!val) {
+        showMessage('message', 'Enter an extended goal amount', 'error');
+        return;
+      }
+      const parsed = parseFloat(val);
+      if (parsed <= goalState.originalGoal) {
+        showMessage('message', 'Extended goal must be higher than the original goal', 'error');
+        return;
+      }
+      try {
+        await apiCall(`/api/campaigns/${slug}`, 'PATCH', { extendedGoal: parsed });
+        showMessage('message', 'Goal extension set', 'success');
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to set extension', 'error');
+      }
+    });
+
+    document.getElementById('clearExtensionBtn').addEventListener('click', async () => {
+      if (!confirm('Remove the goal extension? Progress will return to the original goal.')) return;
+      try {
+        await apiCall(`/api/campaigns/${slug}`, 'PATCH', { extendedGoal: null });
+        showMessage('message', 'Extension removed', 'success');
+        loadCampaign();
+      } catch (error) {
+        showMessage('message', error.message || 'Failed to remove extension', 'error');
+      }
+    });
 
     // ==================== Render donations ====================
 
@@ -656,6 +882,14 @@
         showMessage('drawerMessage', 'Signed in successfully.', 'success');
         loadCampaign();
         loadDocuments();
+        // Check tour state immediately after verify (covers returning organizers)
+        try {
+          const statusRes = await fetch(`/api/auth/status?slug=${encodeURIComponent(slug)}`);
+          if (statusRes.ok) {
+            const { tourPending } = await statusRes.json();
+            if (tourPending) runOnboardingTour();
+          }
+        } catch (_) {}
       } catch (error) {
         showMessage('drawerMessage', error.message || 'Invalid code', 'error');
       }
@@ -748,7 +982,7 @@
 
     function renderBankDetails(bankDetails) {
       bankDetailsCount = bankDetails.length;
-      const section = document.getElementById('bankSection');
+      const section = document.getElementById('publicBankSection');
       const list = document.getElementById('bankList');
 
       if (!bankDetails.length) {
@@ -1220,14 +1454,208 @@
       }
     };
 
+    // ==================== Onboarding Tour ====================
+
+    function markTourSeen() {
+      apiCall(`/api/campaigns/${slug}`, 'PATCH', { tourSeen: true }).catch(() => {});
+    }
+
+    function runOnboardingTour({ markSeen = true } = {}) {
+      if (typeof window.driver === 'undefined') return;
+
+      // If launched from the open desk (e.g. the footer "Replay tour" link),
+      // close it first: step 1 anchors to the public-page progress summary and
+      // step 2 asks the user to open the desk — both assume it starts closed.
+      closeDrawer();
+
+      // Scroll the drawer-body scroll container to bring a child element into view,
+      // then return the element if it is now in the viewport, or null to trigger
+      // Driver.js's built-in anchorless (centered) degrade on very small screens.
+      function resolveDrawerEl(selector) {
+        const el = document.querySelector(selector);
+        if (!el) return null;
+        el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+        const r = el.getBoundingClientRect();
+        return (r.width > 0 && r.height > 0 &&
+                r.top < window.innerHeight && r.bottom > 0 &&
+                r.left < window.innerWidth && r.right > 0) ? el : null;
+      }
+
+      // Scroll the drawer-body so a section's summary sits at the top of the
+      // scroll area. Called when a section expands during the tour so its form
+      // is shown from the top and the next (collapsed) section below it comes
+      // into view before we highlight it.
+      function scrollSectionToTop(section) {
+        const body = document.querySelector('.drawer-body');
+        if (!body || !section) return;
+        const summary = section.querySelector('summary') || section;
+        body.scrollTop += summary.getBoundingClientRect().top - body.getBoundingClientRect().top;
+      }
+
+      const drawerEl = document.getElementById('organizerDrawer');
+      const donationSection = document.getElementById('donationSection');
+      const bankSection = document.getElementById('bankSection');
+      const documentsSection = document.getElementById('documentsSection');
+
+      let teardowns = [];
+      function removeAllGates() {
+        teardowns.forEach(fn => fn());
+        teardowns = [];
+      }
+      function gate(el, event, fn) {
+        el.addEventListener(event, fn);
+        teardowns.push(() => el.removeEventListener(event, fn));
+      }
+
+      const driverObj = window.driver.js.driver({
+        showProgress: false,
+        animate: true,
+        onDestroyStarted: () => {
+          removeAllGates();
+          if (markSeen) markTourSeen();
+          driverObj.destroy();
+        },
+        steps: [
+          // Step 1: Progress summary — no gate
+          {
+            element: '#progressSummary',
+            popover: {
+              title: 'Your campaign progress',
+              description: "This shows how much has been raised toward the goal. Let's walk through the Organizer Desk.",
+              side: 'bottom',
+              align: 'center',
+            },
+          },
+          // Step 2: Open the desk — gated on drawer becoming open
+          {
+            element: '#drawerTab',
+            popover: {
+              title: 'Open the Organizer Desk',
+              description: "Click to open the Organizer Desk. To sign in again later you'll receive a one-time code by email — no password needed.",
+              showButtons: ['close'],
+              side: 'left',
+              align: 'center',
+            },
+            onHighlightStarted: () => {
+              removeAllGates();
+              if (!drawerEl) { driverObj.moveNext(); return; }
+              if (drawerEl.classList.contains('open')) { driverObj.moveNext(); return; }
+              const observer = new MutationObserver(() => {
+                if (drawerEl.classList.contains('open')) {
+                  observer.disconnect();
+                  // The drawer slides in over a ~0.45s transform transition.
+                  // Wait for it to finish so the drawer's sections have settled
+                  // rects before the next step tries to anchor to one — otherwise
+                  // resolveDrawerEl reads an off-screen rect and Driver.js degrades
+                  // to a centered, anchorless popover.
+                  let advanced = false;
+                  const advance = () => {
+                    if (advanced) return;
+                    advanced = true;
+                    clearTimeout(fallback);
+                    drawerEl.removeEventListener('transitionend', onEnd);
+                    driverObj.moveNext();
+                  };
+                  const onEnd = (e) => {
+                    if (e.target === drawerEl && e.propertyName === 'transform') advance();
+                  };
+                  drawerEl.addEventListener('transitionend', onEnd);
+                  const fallback = setTimeout(advance, 600);
+                  teardowns.push(() => {
+                    clearTimeout(fallback);
+                    drawerEl.removeEventListener('transitionend', onEnd);
+                  });
+                }
+              });
+              observer.observe(drawerEl, { attributes: true, attributeFilter: ['class'] });
+              teardowns.push(() => observer.disconnect());
+            },
+          },
+          // Step 3: §02 Record a Donation — gated on expanding
+          {
+            element: () => resolveDrawerEl('#donationSection > summary'),
+            popover: {
+              title: 'Record a Donation',
+              description: "Expand this section to log each donation to your campaign's ledger.",
+              showButtons: ['close'],
+              side: 'top',
+              align: 'start',
+            },
+            onHighlightStarted: () => {
+              removeAllGates();
+              if (!donationSection) { driverObj.moveNext(); return; }
+              if (donationSection.open) { driverObj.moveNext(); return; }
+              gate(donationSection, 'toggle', () => {
+                if (donationSection.open) { removeAllGates(); scrollSectionToTop(donationSection); driverObj.moveNext(); }
+              });
+            },
+          },
+          // Step 4: §03 Bank Accounts — gated on expanding
+          {
+            element: () => resolveDrawerEl('#bankSection > summary'),
+            popover: {
+              title: 'Bank Accounts',
+              description: 'Expand this to add your bank details so donors know where to send funds.',
+              showButtons: ['close'],
+              side: 'top',
+              align: 'start',
+            },
+            onHighlightStarted: () => {
+              removeAllGates();
+              if (!bankSection) { driverObj.moveNext(); return; }
+              if (bankSection.open) { driverObj.moveNext(); return; }
+              gate(bankSection, 'toggle', () => {
+                if (bankSection.open) { removeAllGates(); scrollSectionToTop(bankSection); driverObj.moveNext(); }
+              });
+            },
+          },
+          // Step 5: §04 Documents — gated on expanding
+          {
+            element: () => resolveDrawerEl('#documentsSection > summary'),
+            popover: {
+              title: 'Documents',
+              description: 'Expand this to attach supporting documents to your campaign.',
+              showButtons: ['close'],
+              side: 'top',
+              align: 'start',
+            },
+            onHighlightStarted: () => {
+              removeAllGates();
+              if (!documentsSection) { driverObj.moveNext(); return; }
+              if (documentsSection.open) { driverObj.moveNext(); return; }
+              gate(documentsSection, 'toggle', () => {
+                if (documentsSection.open) { removeAllGates(); scrollSectionToTop(documentsSection); driverObj.moveNext(); }
+              });
+            },
+          },
+          // Step 6: Done — no gate
+          {
+            element: '#organizerDrawer',
+            popover: {
+              title: "You're all set",
+              description: 'You can reopen the Organizer Desk anytime using the tab on the side of the page.',
+              showButtons: ['next'],
+              side: 'left',
+              align: 'center',
+            },
+          },
+        ],
+      });
+
+      driverObj.drive();
+    }
+
     // ==================== Init ====================
 
     (async () => {
       try {
         const statusRes = await fetch(`/api/auth/status?slug=${encodeURIComponent(slug)}`);
         if (statusRes.ok) {
-          const { authenticated } = await statusRes.json();
-          if (authenticated) setAdminMode(true);
+          const { authenticated, tourPending } = await statusRes.json();
+          if (authenticated) {
+            setAdminMode(true);
+            if (tourPending) runOnboardingTour();
+          }
         }
       } catch (_) { /* network error — stay logged out */ }
     })();

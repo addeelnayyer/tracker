@@ -120,6 +120,16 @@ function createFakeDb(seedCampaigns = {}) {
     },
 
     // ── Campaign ──
+    async updateCampaign(slug, partial) {
+      const c = campaigns.get(slug);
+      if (c) {
+        // null values remove the key; non-null values merge
+        for (const [k, v] of Object.entries(partial)) {
+          if (v === null) delete c[k];
+          else c[k] = v;
+        }
+      }
+    },
     async deleteCampaign(slug, _campaignId) {
       campaigns.delete(slug);
     },
@@ -127,6 +137,9 @@ function createFakeDb(seedCampaigns = {}) {
     // test helper: read otp state directly
     _getOtpState(slug) {
       return otpStates.get(slug) ?? null;
+    },
+    _getCampaign(slug) {
+      return campaigns.get(slug) ?? null;
     },
   };
 }
@@ -162,7 +175,7 @@ const CAMPAIGN = {
 
 function makeSessionCookie(campaignId, slug) {
   const raw = sign({ campaignId, slug, exp: Date.now() + 60_000 });
-  return `nasr_session=${raw}`;
+  return `__session=${raw}`;
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -211,7 +224,7 @@ describe('OTP auth — tracer bullet', () => {
 
     assert.equal(res.status, 400);
     const cookies = res.headers['set-cookie'] ?? [];
-    assert.ok(!cookies.some(c => c.startsWith('nasr_session=')), 'should not set session cookie');
+    assert.ok(!cookies.some(c => c.startsWith('__session=')), 'should not set session cookie');
   });
 
   test('OTP verify with correct code sets a signed session cookie', async () => {
@@ -228,7 +241,7 @@ describe('OTP auth — tracer bullet', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.success, true);
     const cookies = res.headers['set-cookie'] ?? [];
-    assert.ok(cookies.some(c => c.startsWith('nasr_session=')), 'should set nasr_session cookie');
+    assert.ok(cookies.some(c => c.startsWith('__session=')), 'should set nasr_session cookie');
   });
 
   test('authorized donation succeeds with valid session cookie', async () => {
@@ -241,7 +254,7 @@ describe('OTP auth — tracer bullet', () => {
       .post('/api/auth/otp/verify')
       .send({ campaignSlug: CAMPAIGN_SLUG, code: fakeEmail.lastCode });
 
-    const sessionCookie = verifyRes.headers['set-cookie'].find(c => c.startsWith('nasr_session='));
+    const sessionCookie = verifyRes.headers['set-cookie'].find(c => c.startsWith('__session='));
     const cookieValue = sessionCookie.split(';')[0]; // strip flags
 
     const donRes = await request(app)
@@ -273,7 +286,7 @@ describe('OTP auth — tracer bullet', () => {
 
     const res = await request(app)
       .post(`/api/donations/${CAMPAIGN_SLUG}`)
-      .set('Cookie', `nasr_session=${wrongCookie}`)
+      .set('Cookie', `__session=${wrongCookie}`)
       .send({ donorName: 'Alice', amount: '50', timestamp: new Date().toISOString() });
 
     assert.equal(res.status, 401);
@@ -549,6 +562,65 @@ describe('Session-status endpoint', () => {
   });
 });
 
+describe('Tour — auth/status tourPending + PATCH tourSeen', () => {
+  let fakeDb;
+
+  beforeEach(() => {
+    fakeDb = createFakeDb({ [CAMPAIGN_SLUG]: { ...CAMPAIGN } });
+    app.locals.firebase = fakeDb;
+    app.locals.email = createFakeEmail();
+  });
+
+  test('status for authenticated organizer with no tour_seen_at returns tourPending: true', async () => {
+    const cookie = makeSessionCookie(CAMPAIGN.id, CAMPAIGN_SLUG);
+    const res = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', cookie);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.authenticated, true);
+    assert.equal(res.body.tourPending, true);
+  });
+
+  test('status for authenticated organizer with tour_seen_at set returns tourPending: false', async () => {
+    await fakeDb.updateCampaign(CAMPAIGN_SLUG, { tour_seen_at: new Date().toISOString() });
+    const cookie = makeSessionCookie(CAMPAIGN.id, CAMPAIGN_SLUG);
+    const res = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', cookie);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.authenticated, true);
+    assert.equal(res.body.tourPending, false);
+  });
+
+  test('status for unauthenticated visitor does not include tourPending', async () => {
+    const res = await request(app).get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.authenticated, false);
+    assert.equal(res.body.tourPending, undefined);
+  });
+
+  test('PATCH tourSeen with valid session sets tour_seen_at and returns 200', async () => {
+    const cookie = makeSessionCookie(CAMPAIGN.id, CAMPAIGN_SLUG);
+    const res = await request(app)
+      .patch(`/api/campaigns/${CAMPAIGN_SLUG}`)
+      .set('Cookie', cookie)
+      .send({ tourSeen: true });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.success, true);
+    const updated = fakeDb._getCampaign(CAMPAIGN_SLUG);
+    assert.ok(updated.tour_seen_at, 'tour_seen_at must be set');
+  });
+
+  test('PATCH tourSeen without session returns 401 and does not write', async () => {
+    const res = await request(app)
+      .patch(`/api/campaigns/${CAMPAIGN_SLUG}`)
+      .send({ tourSeen: true });
+    assert.equal(res.status, 401);
+    const campaign = fakeDb._getCampaign(CAMPAIGN_SLUG);
+    assert.equal(campaign.tour_seen_at, undefined, 'tour_seen_at must not be written');
+  });
+});
+
 describe('Dead password endpoints removed', () => {
   // Seed a real campaign so legacy handlers would respond with 401, not 404.
   // After the endpoints are deleted, Express returns 404 for unknown routes.
@@ -654,7 +726,7 @@ describe('OTP-verified campaign creation', () => {
     assert.equal(confirmRes.body.slug, NEW_SLUG);
 
     const cookies = confirmRes.headers['set-cookie'] ?? [];
-    assert.ok(cookies.some(c => c.startsWith('nasr_session=')), 'should set nasr_session cookie');
+    assert.ok(cookies.some(c => c.startsWith('__session=')), 'should set nasr_session cookie');
 
     const campaign = await fakeDb.getCampaign(NEW_SLUG);
     assert.ok(campaign, 'campaign should exist after confirmation');
@@ -671,7 +743,7 @@ describe('OTP-verified campaign creation', () => {
       .post('/api/campaigns/confirm')
       .send({ token: startRes.body.token, code: fakeEmail.lastCode });
 
-    const sessionCookie = confirmRes.headers['set-cookie'].find(c => c.startsWith('nasr_session='));
+    const sessionCookie = confirmRes.headers['set-cookie'].find(c => c.startsWith('__session='));
     const cookieValue = sessionCookie.split(';')[0];
 
     const donRes = await request(app)

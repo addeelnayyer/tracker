@@ -84,6 +84,17 @@ const setCampaign = async (slug, campaignData) => {
   }
 };
 
+// Merge a partial set of fields onto an existing campaign. Pass null for a
+// field to remove it (e.g. clearing a goal extension).
+const updateCampaign = async (slug, partial) => {
+  try {
+    await db.ref(`campaigns/${slug}`).update(partial);
+  } catch (error) {
+    console.error('Error updating campaign:', error);
+    throw error;
+  }
+};
+
 const getDonations = async (campaignId) => {
   try {
     const snapshot = await db.ref(`donations/${campaignId}`).once('value');
@@ -278,6 +289,7 @@ module.exports = {
   getCampaign,
   getAllCampaigns,
   setCampaign,
+  updateCampaign,
   getDonations,
   addDonation,
   updateCampaignAmount,

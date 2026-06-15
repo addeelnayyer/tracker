@@ -66,6 +66,30 @@
       </div>
 
       <div class="form-group">
+        <label class="ledger-check">
+          <input type="checkbox" id="zakatApplicable" name="zakatApplicable">
+          <span class="ledger-check__box" aria-hidden="true"></span>
+          <span class="ledger-check__text">
+            <span class="ledger-check__title">Zakat Applicable</span>
+            <small class="ledger-check__hint">Mark this campaign as eligible to receive Zakat. A badge will appear on the campaign page.</small>
+          </span>
+        </label>
+      </div>
+
+      <% if (isLocalhost) { %>
+      <div class="form-group">
+        <label class="ledger-check">
+          <input type="checkbox" id="testCampaign" name="testCampaign">
+          <span class="ledger-check__box" aria-hidden="true"></span>
+          <span class="ledger-check__text">
+            <span class="ledger-check__title">Test Campaign</span>
+            <small class="ledger-check__hint">Keep this campaign off the home page. Anyone with the direct link can still see it.</small>
+          </span>
+        </label>
+      </div>
+      <% } %>
+
+      <div class="form-group">
         <label for="email">Organizer Email</label>
         <input type="email" id="email" name="email" placeholder="organizer@example.com" required>
         <small class="hint">A verification code will be sent here. This email is your only way back in.</small>
@@ -102,6 +126,8 @@
       const targetAmount = parseFloat(document.getElementById('targetAmount').value);
       const currency = document.getElementById('currency').value;
       const email = document.getElementById('email').value.trim();
+      const zakatApplicable = document.getElementById('zakatApplicable').checked;
+      const testCampaign = document.getElementById('testCampaign')?.checked ?? false;
 
       if (!name || !slug || !targetAmount || !email) {
         showMessage('message', 'All fields are required', 'error');
@@ -124,7 +150,7 @@
       }
 
       try {
-        const response = await apiCall('/api/campaigns', 'POST', { name, slug, targetAmount, currency, email });
+        const response = await apiCall('/api/campaigns', 'POST', { name, slug, targetAmount, currency, email, zakatApplicable, testCampaign });
         pendingToken = response.token;
         pendingSlug = slug;
         showMessage('message', 'Check your email for a 6-digit code.', 'success');
