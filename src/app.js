@@ -101,7 +101,8 @@ app.get('/', async (req, res) => {
 
 // Start a campaign — the creation form.
 app.get('/start', (req, res) => {
-  res.render('start', { og: siteMeta(req, { title: 'Start a campaign — Nasr' }) });
+  const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+  res.render('start', { og: siteMeta(req, { title: 'Start a campaign — Nasr' }), isLocalhost });
 });
 
 // Campaign view page — fetch the campaign so crawlers get a real preview
@@ -121,7 +122,8 @@ app.get('/campaign/:slug', async (req, res) => {
     console.error('Failed to build campaign preview metadata:', error);
     og = siteMeta(req);
   }
-  res.render('campaign', { og });
+  const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+  res.render('campaign', { og, isLocalhost });
 });
 
 // Admin page — private, keep it out of search engines and link previews.

@@ -183,6 +183,7 @@
               </label>
             </div>
 
+            <% if (isLocalhost) { %>
             <div class="form-group">
               <label class="ledger-check">
                 <input type="checkbox" id="editTestCampaign">
@@ -193,6 +194,7 @@
                 </span>
               </label>
             </div>
+            <% } %>
 
             <button type="submit" class="block-btn">Save Details</button>
           </form>
@@ -503,7 +505,9 @@
     function populateSettingsForm(response) {
       document.getElementById('editCampaignName').value = response.name || '';
       document.getElementById('editZakatApplicable').checked = !!response.zakat_applicable;
-      document.getElementById('editTestCampaign').checked = !!response.test_campaign;
+      if (document.getElementById('editTestCampaign')) {
+        document.getElementById('editTestCampaign').checked = !!response.test_campaign;
+      }
       document.getElementById('extensionCurrencyLabel').textContent = campaignCurrency;
 
       const extInput = document.getElementById('extendedGoal');
@@ -518,7 +522,7 @@
       e.preventDefault();
       const name = document.getElementById('editCampaignName').value.trim();
       const zakatApplicable = document.getElementById('editZakatApplicable').checked;
-      const testCampaign = document.getElementById('editTestCampaign').checked;
+      const testCampaign = document.getElementById('editTestCampaign')?.checked ?? false;
       if (!name) {
         showMessage('message', 'Campaign name cannot be empty', 'error');
         return;

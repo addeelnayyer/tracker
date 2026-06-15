@@ -76,6 +76,7 @@
         </label>
       </div>
 
+      <% if (isLocalhost) { %>
       <div class="form-group">
         <label class="ledger-check">
           <input type="checkbox" id="testCampaign" name="testCampaign">
@@ -86,6 +87,7 @@
           </span>
         </label>
       </div>
+      <% } %>
 
       <div class="form-group">
         <label for="email">Organizer Email</label>
@@ -125,7 +127,7 @@
       const currency = document.getElementById('currency').value;
       const email = document.getElementById('email').value.trim();
       const zakatApplicable = document.getElementById('zakatApplicable').checked;
-      const testCampaign = document.getElementById('testCampaign').checked;
+      const testCampaign = document.getElementById('testCampaign')?.checked ?? false;
 
       if (!name || !slug || !targetAmount || !email) {
         showMessage('message', 'All fields are required', 'error');

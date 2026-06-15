@@ -7,6 +7,9 @@ const { v4: uuidv4 } = require('uuid');
 const cookieSession = require('../cookieSession');
 
 const OTP_TTL_MS = 10 * 60 * 1000;
+
+const isLocalhost = (req) =>
+  req.hostname === 'localhost' || req.hostname === '127.0.0.1';
 const MAX_VERIFY_ATTEMPTS = 5;
 
 function generateOtp() {
@@ -52,7 +55,7 @@ router.post('/', async (req, res) => {
       currency: currencyCode,
       email: organizerEmail,
       zakatApplicable: Boolean(zakatApplicable),
-      testCampaign: Boolean(testCampaign),
+      testCampaign: isLocalhost(req) && Boolean(testCampaign),
       codeHash: hashOtp(code),
       expiresAt: now + OTP_TTL_MS,
       attemptCount: 0,
@@ -236,7 +239,7 @@ router.patch('/:slug', async (req, res) => {
       updates.zakat_applicable = Boolean(zakatApplicable);
     }
 
-    if (testCampaign !== undefined) {
+    if (testCampaign !== undefined && isLocalhost(req)) {
       updates.test_campaign = Boolean(testCampaign);
     }
 
