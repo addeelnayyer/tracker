@@ -99,6 +99,51 @@ describe('Member management endpoints', () => {
     app.locals.email = createFakeEmail();
   });
 
+  // ── GET /api/campaigns/:slug/members ──────────────────────────────────────
+
+  test('GET members — organizer with no members returns empty list', async () => {
+    const cookie = makeSessionCookie(CAMPAIGN.id, CAMPAIGN_SLUG);
+    const res = await request(app)
+      .get(`/api/campaigns/${CAMPAIGN_SLUG}/members`)
+      .set('Cookie', cookie);
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.members, []);
+  });
+
+  test('GET members — organizer sees existing members with id and email', async () => {
+    await fakeDb.addMember(CAMPAIGN.id, { email: 'alice@example.com', added_at: '2026-01-01T00:00:00.000Z' });
+    await fakeDb.addMember(CAMPAIGN.id, { email: 'bob@example.com', added_at: '2026-01-02T00:00:00.000Z' });
+    const cookie = makeSessionCookie(CAMPAIGN.id, CAMPAIGN_SLUG);
+    const res = await request(app)
+      .get(`/api/campaigns/${CAMPAIGN_SLUG}/members`)
+      .set('Cookie', cookie);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.members.length, 2);
+    assert.ok(res.body.members[0].id);
+    assert.equal(res.body.members[0].email, 'alice@example.com');
+  });
+
+  test('GET members — no session returns 401', async () => {
+    const res = await request(app).get(`/api/campaigns/${CAMPAIGN_SLUG}/members`);
+    assert.equal(res.status, 401);
+  });
+
+  test('GET members — member session returns 401', async () => {
+    const cookie = makeSessionCookie(CAMPAIGN.id, CAMPAIGN_SLUG, 'member', 'member@example.com');
+    const res = await request(app)
+      .get(`/api/campaigns/${CAMPAIGN_SLUG}/members`)
+      .set('Cookie', cookie);
+    assert.equal(res.status, 401);
+  });
+
+  test('GET members — campaignId mismatch returns 401', async () => {
+    const cookie = makeSessionCookie('wrong-campaign-id', CAMPAIGN_SLUG);
+    const res = await request(app)
+      .get(`/api/campaigns/${CAMPAIGN_SLUG}/members`)
+      .set('Cookie', cookie);
+    assert.equal(res.status, 401);
+  });
+
   // ── POST /api/campaigns/:slug/members ──────────────────────────────────────
 
   test('organizer can add a member — returns { success, memberId } and persists entry', async () => {

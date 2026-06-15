@@ -300,9 +300,29 @@
         </div>
       </details>
 
-      <details class="drawer-section" id="dangerZoneSection" style="display: none;">
+      <details class="drawer-section" id="membersSection" style="display: none;">
         <summary>
           <span class="drawer-section-no">05</span>
+          <span class="drawer-section-title">Trusted Members</span>
+          <span class="drawer-section-marker" aria-hidden="true"></span>
+        </summary>
+        <div class="drawer-section-body">
+          <p class="drawer-note">Members can record donations and manage bank accounts. They cannot change campaign settings or delete the campaign.</p>
+          <div id="membersMessage"></div>
+          <div id="membersList"></div>
+          <form id="memberAddForm" style="margin-top: 12px;">
+            <div class="form-group">
+              <label for="memberEmail">Member Email</label>
+              <input type="email" id="memberEmail" placeholder="member@example.com">
+            </div>
+            <button type="submit" class="block-btn">Add Member</button>
+          </form>
+        </div>
+      </details>
+
+      <details class="drawer-section" id="dangerZoneSection" style="display: none;">
+        <summary>
+          <span class="drawer-section-no">06</span>
           <span class="drawer-section-title">Danger Zone</span>
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
@@ -348,6 +368,7 @@
 
     const slug = window.location.pathname.split('/')[2];
     let isAdmin = false;
+    let userRole = null;
     let campaignCurrency = 'USD';
 
     // Set default timestamp to now
@@ -877,19 +898,26 @@
       try {
         await apiCall('/api/auth/otp/verify', 'POST', { campaignSlug: slug, code });
         document.getElementById('otpVerifyForm').style.display = 'none';
+        // Fetch role before setting admin mode so the members section renders correctly
+        try {
+          const statusRes = await fetch(`/api/auth/status?slug=${encodeURIComponent(slug)}`);
+          if (statusRes.ok) {
+            const { role, tourPending } = await statusRes.json();
+            userRole = role || null;
+            setAdminMode(true);
+            openDrawer();
+            showMessage('drawerMessage', 'Signed in successfully.', 'success');
+            loadCampaign();
+            loadDocuments();
+            if (tourPending) runOnboardingTour();
+            return;
+          }
+        } catch (_) {}
         setAdminMode(true);
         openDrawer();
         showMessage('drawerMessage', 'Signed in successfully.', 'success');
         loadCampaign();
         loadDocuments();
-        // Check tour state immediately after verify (covers returning organizers)
-        try {
-          const statusRes = await fetch(`/api/auth/status?slug=${encodeURIComponent(slug)}`);
-          if (statusRes.ok) {
-            const { tourPending } = await statusRes.json();
-            if (tourPending) runOnboardingTour();
-          }
-        } catch (_) {}
       } catch (error) {
         showMessage('drawerMessage', error.message || 'Invalid code', 'error');
       }
@@ -1059,6 +1087,70 @@
         showMessage('message', 'Failed to remove bank account', 'error');
       }
     }
+
+    // ==================== Member management ====================
+
+    async function loadMembers() {
+      try {
+        const res = await apiCall(`/api/campaigns/${slug}/members`);
+        renderMembers(res.members || []);
+      } catch (err) {
+        document.getElementById('membersMessage').innerHTML =
+          `<p class="form-error">${escapeHtml(err.message || 'Failed to load members')}</p>`;
+      }
+    }
+
+    function renderMembers(members) {
+      const list = document.getElementById('membersList');
+      if (!members.length) {
+        list.innerHTML = '<p class="empty-note">No members yet.</p>';
+        return;
+      }
+      list.innerHTML = members.map(m => `
+        <div class="member-row">
+          <span class="member-email">${escapeHtml(m.email)}</span>
+          <button class="remove-member-btn secondary-btn" type="button" data-member-id="${escapeHtml(m.id)}">Remove</button>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('membersList').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.remove-member-btn');
+      if (!btn) return;
+      const memberId = btn.dataset.memberId;
+      btn.disabled = true;
+      try {
+        await apiCall(`/api/campaigns/${slug}/members/${memberId}`, 'DELETE');
+        await loadMembers();
+      } catch (err) {
+        document.getElementById('membersMessage').innerHTML =
+          `<p class="form-error">${escapeHtml(err.message || 'Failed to remove member')}</p>`;
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('memberAddForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const emailInput = document.getElementById('memberEmail');
+      const email = emailInput.value.trim();
+      const msgEl = document.getElementById('membersMessage');
+      if (!email) {
+        msgEl.innerHTML = '<p class="form-error">Email is required</p>';
+        return;
+      }
+      msgEl.innerHTML = '';
+      const submitBtn = e.target.querySelector('[type="submit"]');
+      submitBtn.disabled = true;
+      try {
+        await apiCall(`/api/campaigns/${slug}/members`, 'POST', { email });
+        emailInput.value = '';
+        await loadMembers();
+      } catch (err) {
+        msgEl.innerHTML = `<p class="form-error">${escapeHtml(err.message || 'Failed to add member')}</p>`;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
 
     // ==================== Documents gallery ====================
 
@@ -1379,8 +1471,12 @@
     function setAdminMode(on) {
       isAdmin = on;
       document.body.classList.toggle('admin-mode', on);
-      // The drawer swaps between the sign-in pane and the organizer tools via CSS.
-      if (!on) {
+      const membersSection = document.getElementById('membersSection');
+      if (on) {
+        membersSection.style.display = userRole === 'organizer' ? '' : 'none';
+        if (userRole === 'organizer') loadMembers();
+      } else {
+        membersSection.style.display = 'none';
         // Reset OTP flow so the email + Send Code form is shown again on logout
         document.getElementById('otpVerifyForm').style.display = 'none';
         document.getElementById('otpRequestForm').style.display = 'block';
@@ -1651,8 +1747,9 @@
       try {
         const statusRes = await fetch(`/api/auth/status?slug=${encodeURIComponent(slug)}`);
         if (statusRes.ok) {
-          const { authenticated, tourPending } = await statusRes.json();
+          const { authenticated, tourPending, role } = await statusRes.json();
           if (authenticated) {
+            userRole = role || null;
             setAdminMode(true);
             if (tourPending) runOnboardingTour();
           }

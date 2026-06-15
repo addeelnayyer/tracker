@@ -318,6 +318,27 @@ function requireOrganizer(session, campaign) {
   return true;
 }
 
+router.get('/:slug/members', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const fb = req.app.locals.firebase;
+
+    const session = cookieSession.getSession(req);
+    const campaign = await fb.getCampaign(slug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+
+    if (!requireOrganizer(session, campaign) || !session || session.slug !== slug) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const members = await fb.getMembers(campaign.id);
+    res.json({ members });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/:slug/members', async (req, res) => {
   try {
     const { slug } = req.params;
