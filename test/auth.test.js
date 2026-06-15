@@ -20,6 +20,7 @@ function createFakeDb(seedCampaigns = {}) {
   const bankDetails = new Map();     // campaignId → [{id, ...}]
   const documents = new Map();       // campaignId → [{id, ...}]
   const pendingSignups = new Map();  // token → {name, slug, ...}
+  const members = new Map();         // campaignId → [{id, email, ...}]
   let seq = 0;
   const nextId = (prefix) => `${prefix}-${++seq}`;
 
@@ -132,6 +133,21 @@ function createFakeDb(seedCampaigns = {}) {
     },
     async deleteCampaign(slug, _campaignId) {
       campaigns.delete(slug);
+    },
+
+    // ── Members ──
+    async getMembers(campaignId) {
+      return members.get(campaignId) ?? [];
+    },
+    async addMember(campaignId, data) {
+      const id = nextId('mem');
+      if (!members.has(campaignId)) members.set(campaignId, []);
+      members.get(campaignId).push({ id, ...data });
+      return id;
+    },
+    async removeMember(campaignId, memberId) {
+      const list = members.get(campaignId) ?? [];
+      members.set(campaignId, list.filter(m => m.id !== memberId));
     },
 
     // test helper: read otp state directly
@@ -836,5 +852,127 @@ describe('OTP-verified campaign creation', () => {
 
     assert.equal(confirmRes.status, 409);
     assert.match(confirmRes.body.error, /slug/i);
+  });
+});
+
+describe('Member OTP login', () => {
+  const MEMBER_EMAIL = 'member@example.com';
+  let fakeDb;
+  let fakeEmail;
+
+  beforeEach(() => {
+    fakeDb = createFakeDb({ [CAMPAIGN_SLUG]: { ...CAMPAIGN } });
+    app.locals.firebase = fakeDb;
+    fakeEmail = createFakeEmail();
+    app.locals.email = fakeEmail;
+  });
+
+  test('otp/request with a member email sends OTP and returns neutral 200', async () => {
+    await fakeDb.addMember(CAMPAIGN.id, { email: MEMBER_EMAIL, added_at: new Date().toISOString() });
+
+    const res = await request(app)
+      .post('/api/auth/otp/request')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: MEMBER_EMAIL });
+
+    assert.equal(res.status, 200);
+    assert.equal(fakeEmail.callCount, 1);
+    assert.equal(fakeEmail.lastCode?.length, 6);
+  });
+
+  test('otp/request with an email that is neither owner nor member sends nothing and returns neutral 200', async () => {
+    const res = await request(app)
+      .post('/api/auth/otp/request')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: 'unknown@example.com' });
+
+    assert.equal(res.status, 200);
+    assert.equal(fakeEmail.callCount, 0);
+  });
+
+  test('otp/verify for a member email produces a session with role member and correct email', async () => {
+    await fakeDb.addMember(CAMPAIGN.id, { email: MEMBER_EMAIL, added_at: new Date().toISOString() });
+
+    await request(app)
+      .post('/api/auth/otp/request')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: MEMBER_EMAIL });
+
+    const code = fakeEmail.lastCode;
+    const verifyRes = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: MEMBER_EMAIL, code });
+
+    assert.equal(verifyRes.status, 200);
+    assert.equal(verifyRes.body.success, true);
+
+    // Confirm session carries role: member
+    const statusRes = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', verifyRes.headers['set-cookie']);
+
+    assert.equal(statusRes.body.authenticated, true);
+    assert.equal(statusRes.body.role, 'member');
+  });
+
+  test('otp/verify for the owner email still produces role organizer', async () => {
+    await request(app)
+      .post('/api/auth/otp/request')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL });
+
+    const verifyRes = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL, code: fakeEmail.lastCode });
+
+    assert.equal(verifyRes.status, 200);
+
+    const statusRes = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', verifyRes.headers['set-cookie']);
+
+    assert.equal(statusRes.body.role, 'organizer');
+  });
+
+  test('auth/status returns role member for a member session cookie', async () => {
+    const cookie = makeSessionCookie(CAMPAIGN.id, CAMPAIGN_SLUG, 'member', MEMBER_EMAIL);
+    const res = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', cookie);
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.authenticated, true);
+    assert.equal(res.body.role, 'member');
+  });
+
+  test('concurrent OTP requests from owner and member use independent state', async () => {
+    await fakeDb.addMember(CAMPAIGN.id, { email: MEMBER_EMAIL, added_at: new Date().toISOString() });
+
+    // Both request OTPs; each email call is independent
+    await request(app)
+      .post('/api/auth/otp/request')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL });
+    const ownerCode = fakeEmail.lastCode;
+
+    await request(app)
+      .post('/api/auth/otp/request')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: MEMBER_EMAIL });
+    const memberCode = fakeEmail.lastCode;
+
+    // Codes are independent (different OTP state keys)
+    assert.notEqual(ownerCode, memberCode);
+
+    // Owner verifies with their code → organizer session
+    const ownerVerify = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: ORGANIZER_EMAIL, code: ownerCode });
+    assert.equal(ownerVerify.status, 200);
+
+    // Member verifies with their code → member session
+    const memberVerify = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ campaignSlug: CAMPAIGN_SLUG, email: MEMBER_EMAIL, code: memberCode });
+    assert.equal(memberVerify.status, 200);
+
+    const memberStatus = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', memberVerify.headers['set-cookie']);
+    assert.equal(memberStatus.body.role, 'member');
   });
 });

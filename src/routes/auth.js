@@ -40,8 +40,15 @@ router.post('/otp/request', async (req, res) => {
     const campaign = await firebase.getCampaign(campaignSlug);
 
     // Always respond neutrally — never reveal whether campaign or email matched
-    if (!campaign || campaign.email !== submittedEmail) {
+    if (!campaign) {
       return res.json(NEUTRAL_MSG);
+    }
+
+    const isOwner = campaign.email === submittedEmail;
+    if (!isOwner) {
+      const members = await firebase.getMembers(campaign.id);
+      const isMember = members.some(m => m.email === submittedEmail);
+      if (!isMember) return res.json(NEUTRAL_MSG);
     }
 
     const now = Date.now();
@@ -120,7 +127,20 @@ router.post('/otp/verify', async (req, res) => {
     }
 
     await firebase.clearOtpState(campaignSlug, emailHash);
-    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug, role: 'organizer', email: campaign.email });
+
+    let role, sessionEmail;
+    if (submittedEmail === campaign.email) {
+      role = 'organizer';
+      sessionEmail = campaign.email;
+    } else {
+      const members = await firebase.getMembers(campaign.id);
+      const member = members.find(m => m.email === submittedEmail);
+      if (!member) return res.status(400).json({ error: 'Invalid request' });
+      role = 'member';
+      sessionEmail = submittedEmail;
+    }
+
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug, role, email: sessionEmail });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
