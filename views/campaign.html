@@ -874,9 +874,12 @@
 
     // ==================== OTP login (two-step) ====================
 
+    let otpEmail = '';
+
     document.getElementById('otpRequestForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('loginEmail').value.trim();
+      otpEmail = email;
       showOverlay('Sending code');
       try {
         await apiCall('/api/auth/otp/request', 'POST', { campaignSlug: slug, email });
@@ -896,7 +899,7 @@
       e.preventDefault();
       const code = document.getElementById('otpCode').value.replace(/\D/g, '');
       try {
-        await apiCall('/api/auth/otp/verify', 'POST', { campaignSlug: slug, code });
+        await apiCall('/api/auth/otp/verify', 'POST', { campaignSlug: slug, email: otpEmail, code });
         document.getElementById('otpVerifyForm').style.display = 'none';
         // Fetch role before setting admin mode so the members section renders correctly
         try {
