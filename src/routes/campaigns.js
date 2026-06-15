@@ -215,7 +215,7 @@ router.patch('/:slug', async (req, res) => {
     const fb = req.app.locals.firebase;
 
     const session = cookieSession.getSession(req);
-    if (!session || session.slug !== slug) {
+    if (!session || session.slug !== slug || session.role !== 'organizer') {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
@@ -282,7 +282,7 @@ router.delete('/:slug', async (req, res) => {
     const fb = req.app.locals.firebase;
 
     const session = cookieSession.getSession(req);
-    if (!session || session.slug !== slug) {
+    if (!session || session.slug !== slug || session.role !== 'organizer') {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 

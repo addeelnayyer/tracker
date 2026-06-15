@@ -6,7 +6,13 @@ const cookieSession = require('../cookieSession');
 
 const MAX_FIELD_LENGTH = 140;
 
-// Add a bank detail (requires session cookie)
+async function checkMemberRevocation(fb, session) {
+  if (session.role !== 'member') return true;
+  const members = await fb.getMembers(session.campaignId);
+  return members.some(m => m.email.toLowerCase() === session.email.toLowerCase());
+}
+
+// Add a bank detail (requires session cookie; members are re-verified on each request)
 router.post('/:campaignSlug', async (req, res) => {
   try {
     const { campaignSlug } = req.params;
@@ -32,6 +38,10 @@ router.post('/:campaignSlug', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    if (!await checkMemberRevocation(fb, session)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const bankDetailData = {
       bank_name: String(bankName).trim(),
       account_title: String(accountTitle).trim(),
@@ -40,7 +50,7 @@ router.post('/:campaignSlug', async (req, res) => {
     };
 
     const bankDetailId = await fb.addBankDetail(campaign.id, bankDetailData);
-    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug, role: session.role, email: session.email });
     res.json({ success: true, bankDetailId });
   } catch (error) {
     console.error(error);
@@ -48,7 +58,7 @@ router.post('/:campaignSlug', async (req, res) => {
   }
 });
 
-// Delete a bank detail (requires session cookie)
+// Delete a bank detail (requires session cookie; members are re-verified on each request)
 router.delete('/:campaignSlug/:bankDetailId', async (req, res) => {
   try {
     const { campaignSlug, bankDetailId } = req.params;
@@ -65,8 +75,12 @@ router.delete('/:campaignSlug/:bankDetailId', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    if (!await checkMemberRevocation(fb, session)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     await fb.deleteBankDetail(campaign.id, bankDetailId);
-    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug, role: session.role, email: session.email });
     res.json({ success: true });
   } catch (error) {
     console.error(error);

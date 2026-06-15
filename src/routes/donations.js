@@ -1,8 +1,16 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const cookieSession = require('../cookieSession');
 const { createMultipart } = require('../multipart');
+
+async function checkMemberRevocation(fb, session) {
+  if (session.role !== 'member') return true;
+  const members = await fb.getMembers(session.campaignId);
+  return members.some(m => m.email.toLowerCase() === session.email.toLowerCase());
+}
 
 const proofUpload = createMultipart({
   limits: { fileSize: 50 * 1024 * 1024 },
@@ -121,6 +129,10 @@ router.post('/:campaignSlug/:donationId/proof', proofUpload.single('proof'), asy
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    if (!await checkMemberRevocation(fb, session)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const donations = await fb.getDonations(campaign.id);
     const existing = donations.find(d => d.id === donationId);
     if (!existing) return res.status(404).json({ error: 'Donation not found' });
@@ -134,7 +146,7 @@ router.post('/:campaignSlug/:donationId/proof', proofUpload.single('proof'), asy
       proof_mime_type: req.file.mimetype
     });
 
-    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug });
+    cookieSession.setSessionCookie(res, { campaignId: campaign.id, slug: campaignSlug, role: session.role, email: session.email });
     res.json({ success: true, proof_url: url });
   } catch (error) {
     console.error(error);
