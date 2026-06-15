@@ -1463,6 +1463,19 @@
     function runOnboardingTour({ markSeen = true } = {}) {
       if (typeof window.driver === 'undefined') return;
 
+      // Scroll the drawer-body scroll container to bring a child element into view,
+      // then return the element if it is now in the viewport, or null to trigger
+      // Driver.js's built-in anchorless (centered) degrade on very small screens.
+      function resolveDrawerEl(selector) {
+        const el = document.querySelector(selector);
+        if (!el) return null;
+        el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+        const r = el.getBoundingClientRect();
+        return (r.width > 0 && r.height > 0 &&
+                r.top < window.innerHeight && r.bottom > 0 &&
+                r.left < window.innerWidth && r.right > 0) ? el : null;
+      }
+
       const drawerEl = document.getElementById('organizerDrawer');
       const donationSection = document.getElementById('donationSection');
       const bankSection = document.getElementById('bankSection');
@@ -1523,7 +1536,7 @@
           },
           // Step 3: §02 Record a Donation — gated on expanding
           {
-            element: '#donationSection > summary',
+            element: () => resolveDrawerEl('#donationSection > summary'),
             popover: {
               title: 'Record a Donation',
               description: "Expand this section to log each donation to your campaign's ledger.",
@@ -1542,7 +1555,7 @@
           },
           // Step 4: §03 Bank Accounts — gated on expanding
           {
-            element: '#bankSection > summary',
+            element: () => resolveDrawerEl('#bankSection > summary'),
             popover: {
               title: 'Bank Accounts',
               description: 'Expand this to add your bank details so donors know where to send funds.',
@@ -1561,7 +1574,7 @@
           },
           // Step 5: §04 Documents — gated on expanding
           {
-            element: '#documentsSection > summary',
+            element: () => resolveDrawerEl('#documentsSection > summary'),
             popover: {
               title: 'Documents',
               description: 'Expand this to attach supporting documents to your campaign.',
