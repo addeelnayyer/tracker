@@ -225,7 +225,7 @@ router.patch('/:slug', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { name, zakatApplicable, testCampaign, extendedGoal } = req.body;
+    const { name, zakatApplicable, testCampaign, extendedGoal, tourSeen } = req.body;
     const updates = {};
 
     if (name !== undefined) {
@@ -241,6 +241,10 @@ router.patch('/:slug', async (req, res) => {
 
     if (testCampaign !== undefined && isLocalhost(req)) {
       updates.test_campaign = Boolean(testCampaign);
+    }
+
+    if (tourSeen === true && !campaign.tour_seen_at) {
+      updates.tour_seen_at = new Date().toISOString();
     }
 
     if (extendedGoal !== undefined) {

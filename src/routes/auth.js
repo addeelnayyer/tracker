@@ -124,14 +124,22 @@ router.post('/otp/verify', async (req, res) => {
 
 // ─── Session status ───────────────────────────────────────────────────────────
 
-router.get('/status', (req, res) => {
-  const session = cookieSession.getSession(req);
-  const slug = req.query?.slug;
-  if (session && session.slug === slug) {
-    cookieSession.setSessionCookie(res, { campaignId: session.campaignId, slug: session.slug });
-    return res.json({ authenticated: true });
+router.get('/status', async (req, res) => {
+  try {
+    const session = cookieSession.getSession(req);
+    const slug = req.query?.slug;
+    if (session && session.slug === slug) {
+      cookieSession.setSessionCookie(res, { campaignId: session.campaignId, slug: session.slug });
+      const { firebase } = req.app.locals;
+      const campaign = await firebase.getCampaign(slug);
+      const tourPending = !campaign?.tour_seen_at;
+      return res.json({ authenticated: true, tourPending });
+    }
+    return res.json({ authenticated: false });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
-  return res.json({ authenticated: false });
 });
 
 router.post('/logout', (req, res) => {
