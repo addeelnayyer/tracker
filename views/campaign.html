@@ -315,7 +315,10 @@
 
     <footer class="drawer-foot">
       <span class="drawer-foot-note">Signed in as organizer</span>
-      <button class="secondary-btn drawer-logout" type="button" onclick="logoutAdmin()">Log Out</button>
+      <div class="drawer-foot-actions">
+        <button class="link-btn" type="button" id="replayTourBtn" onclick="runOnboardingTour({ markSeen: false })">Replay tour</button>
+        <button class="secondary-btn drawer-logout" type="button" onclick="logoutAdmin()">Log Out</button>
+      </div>
     </footer>
   </aside>
 
@@ -1457,7 +1460,7 @@
       apiCall(`/api/campaigns/${slug}`, 'PATCH', { tourSeen: true }).catch(() => {});
     }
 
-    function runOnboardingTour() {
+    function runOnboardingTour({ markSeen = true } = {}) {
       if (typeof window.driver === 'undefined') return;
 
       const drawerEl = document.getElementById('organizerDrawer');
@@ -1480,7 +1483,7 @@
         animate: true,
         onDestroyStarted: () => {
           removeAllGates();
-          markTourSeen();
+          if (markSeen) markTourSeen();
           driverObj.destroy();
         },
         steps: [
