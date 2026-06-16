@@ -280,7 +280,7 @@
         </div>
       </details>
 
-      <details class="drawer-section" id="documentsSection">
+      <details class="drawer-section" id="drawerDocumentsSection">
         <summary>
           <span class="drawer-section-no">04</span>
           <span class="drawer-section-title">Documents</span>
@@ -1479,7 +1479,7 @@
 
       document.getElementById('campaignDetailsSection').style.display = on ? (isOrganizer ? '' : 'none') : '';
       document.getElementById('donationSection').style.display = on ? (isOrganizer ? '' : 'none') : '';
-      document.getElementById('documentsSection').style.display = on ? (isOrganizer ? '' : 'none') : '';
+      document.getElementById('drawerDocumentsSection').style.display = on ? (isOrganizer ? '' : 'none') : '';
       document.getElementById('membersSection').style.display = isOrganizer ? '' : 'none';
 
       const footNote = document.getElementById('drawerFootNote');
@@ -1602,7 +1602,7 @@
       const drawerEl = document.getElementById('organizerDrawer');
       const donationSection = document.getElementById('donationSection');
       const bankSection = document.getElementById('bankSection');
-      const documentsSection = document.getElementById('documentsSection');
+      const documentsSection = document.getElementById('drawerDocumentsSection');
 
       let teardowns = [];
       function removeAllGates() {
@@ -1718,7 +1718,7 @@
           },
           // Step 5: §04 Documents — gated on expanding
           {
-            element: () => resolveDrawerEl('#documentsSection > summary'),
+            element: () => resolveDrawerEl('#drawerDocumentsSection > summary'),
             popover: {
               title: 'Documents',
               description: 'Expand this to attach supporting documents to your campaign.',
