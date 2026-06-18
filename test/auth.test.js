@@ -609,6 +609,44 @@ describe('Session-status endpoint', () => {
     assert.equal(statusRes.body.authenticated, true);
     assert.equal(statusRes.body.role, 'organizer');
   });
+
+  // Legacy sessions were issued before the role field existed. Without a derived
+  // role the client hides every organizer tool except the always-visible Bank
+  // Accounts section — the bug this guards against.
+  test('legacy session (no role/email) is treated as organizer', async () => {
+    const raw = sign({ campaignId: CAMPAIGN.id, slug: CAMPAIGN_SLUG, exp: Date.now() + 60_000 });
+    const res = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', `__session=${raw}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.authenticated, true);
+    assert.equal(res.body.role, 'organizer');
+  });
+
+  test('legacy session re-issues a cookie carrying the derived role', async () => {
+    const raw = sign({ campaignId: CAMPAIGN.id, slug: CAMPAIGN_SLUG, exp: Date.now() + 60_000 });
+    const res = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', `__session=${raw}`);
+    const reissued = res.headers['set-cookie'].find(c => c.startsWith('__session='));
+    assert.ok(reissued, 'status must re-issue the session cookie');
+    const value = decodeURIComponent(reissued.split(';')[0].slice('__session='.length));
+    const payload = require('../src/cookieSession').verify(value);
+    assert.equal(payload.role, 'organizer');
+  });
+
+  test('legacy session with a member email derives role: member', async () => {
+    await fakeDb.addMember(CAMPAIGN.id, { email: 'member@example.com' });
+    const raw = sign({
+      campaignId: CAMPAIGN.id, slug: CAMPAIGN_SLUG,
+      email: 'member@example.com', exp: Date.now() + 60_000,
+    });
+    const res = await request(app)
+      .get(`/api/auth/status?slug=${CAMPAIGN_SLUG}`)
+      .set('Cookie', `__session=${raw}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.role, 'member');
+  });
 });
 
 describe('Tour — auth/status tourPending + PATCH tourSeen', () => {
