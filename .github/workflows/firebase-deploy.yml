@@ -22,7 +22,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 22
+          # ponytail: 20, not 22. firebase-tools' bundled node-fetch throws "Premature
+          # close" on the runner's Node 22.23.x token request (masked as "Failed to
+          # authenticate"). This is the CI runtime only; the deployed function stays Node 22.
+          node-version: 20
           cache: pnpm
 
       - name: Install dependencies
@@ -37,38 +40,14 @@ jobs:
           printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "${RUNNER_TEMP}/gcp-sa-key.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/gcp-sa-key.json" >> "$GITHUB_ENV"
 
-      - name: DIAG connectivity to token endpoint
-        run: |
-          echo "node: $(node -v)"
-          echo "=== curl POST oauth2/v4/token (expect 400 invalid, proves reachability) ==="
-          curl -s -o /dev/null -w "curl http2 status=%{http_code} time=%{time_total}s\n" \
-            -X POST https://www.googleapis.com/oauth2/v4/token -d 'grant_type=x' || echo "curl FAILED rc=$?"
-          echo "=== node fetch POST same endpoint ==="
-          node -e 'fetch("https://www.googleapis.com/oauth2/v4/token",{method:"POST"}).then(r=>console.log("node fetch status",r.status)).catch(e=>console.log("node fetch ERR",e.name,e.message,e.cause&&e.cause.message))'
-          echo "=== node fetch modern endpoint oauth2.googleapis.com ==="
-          node -e 'fetch("https://oauth2.googleapis.com/token",{method:"POST"}).then(r=>console.log("node fetch status",r.status)).catch(e=>console.log("node fetch ERR",e.name,e.message,e.cause&&e.cause.message))'
-
       - name: Deploy to Firebase
-        # ponytail: the SA-token POST to www.googleapis.com/oauth2/v4/token intermittently
-        # gets "Premature close" on GitHub's runner (other Google hosts in the same run are
-        # fine), which firebase-tools masks as "Failed to authenticate". ipv4first dodges the
-        # runner's flaky IPv6 path; the retry loop covers the rest. Pinned to last-good 15.20.0.
-        env:
-          NODE_OPTIONS: --dns-result-order=ipv4first
         run: |
-          for attempt in 1 2 3 4 5; do
-            echo "::group::deploy attempt $attempt"
-            pnpm dlx firebase-tools@15.20.0 deploy \
-              --only functions,hosting,database,storage \
-              --project addeelnayyer-nasrv0 \
-              --non-interactive \
-              --force && exit 0
-            echo "::endgroup::"
-            echo "attempt $attempt failed; retrying in 10s"
-            sleep 10
-          done
-          echo "all deploy attempts failed" >&2
-          exit 1
+          # ponytail: pinned to the last build verified against this workflow; bump deliberately.
+          pnpm dlx firebase-tools@15.20.0 deploy \
+            --only functions,hosting,database,storage \
+            --project addeelnayyer-nasrv0 \
+            --non-interactive \
+            --force
 
       - name: Clean up credentials
         if: always()
