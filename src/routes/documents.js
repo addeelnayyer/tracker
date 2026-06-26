@@ -7,18 +7,25 @@ const cookieSession = require('../cookieSession');
 const firebase = require('../firebase');
 const { createMultipart } = require('../multipart');
 
+const ALLOWED_MIMES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/ogg'
+];
+
+const isAllowedDocMime = (mime) => ALLOWED_MIMES.includes(mime);
+
 const upload = createMultipart({
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedMimes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'image/svg+xml'
-    ];
-    allowedMimes.includes(file.mimetype) ? cb(null, true) : cb(new Error('Invalid file type. Only images and PDFs are allowed.'));
+    isAllowedDocMime(file.mimetype) ? cb(null, true) : cb(new Error('Invalid file type. Only images, videos and PDFs are allowed.'));
   }
 });
 
@@ -167,3 +174,4 @@ router.delete('/:campaignSlug/:documentId', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.isAllowedDocMime = isAllowedDocMime;

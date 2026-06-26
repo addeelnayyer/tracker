@@ -103,12 +103,13 @@
   </div>
 
   <!-- Lightbox plate viewer -->
-  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" aria-hidden="true">
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Media viewer" aria-hidden="true">
     <div class="lightbox-counter" id="lightboxCounter"></div>
     <button class="lightbox-close" id="lightboxClose" aria-label="Close viewer">&#10005;</button>
     <button class="lightbox-nav prev" id="lightboxPrev" aria-label="Previous image">&#8592;</button>
     <div class="lightbox-stage" id="lightboxStage">
       <img id="lightboxImage" src="" alt="">
+      <video id="lightboxVideo" controls preload="metadata" hidden></video>
     </div>
     <button class="lightbox-nav next" id="lightboxNext" aria-label="Next image">&#8594;</button>
     <div class="lightbox-caption" id="lightboxCaption"></div>
@@ -287,15 +288,15 @@
           <span class="drawer-section-marker" aria-hidden="true"></span>
         </summary>
         <div class="drawer-section-body">
-          <p class="drawer-note">Images and PDFs shown in the campaign gallery.</p>
+          <p class="drawer-note">Images, videos and PDFs shown in the campaign gallery.</p>
           <div class="drag-drop-area" id="dropArea" role="button" tabindex="0"
                aria-label="Upload documents: drag and drop or press Enter to browse">
             <div class="drag-drop-glyph">&#10515;</div>
-            <p>Drag &amp; drop images or PDFs</p>
+            <p>Drag &amp; drop images, videos or PDFs</p>
             <small>or click to browse — up to 10 files, 50&nbsp;MB each</small>
           </div>
           <input type="file" id="fileInput" multiple
-                 accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf">
+                 accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf,video/mp4,video/webm,video/quicktime,video/ogg">
           <div class="upload-queue" id="uploadQueue"></div>
         </div>
       </details>
@@ -1157,7 +1158,7 @@
 
     // ==================== Documents gallery ====================
 
-    let galleryImages = [];
+    let galleryMedia = [];
     let galleryDocs = [];
 
     async function loadDocuments() {
@@ -1179,7 +1180,7 @@
       if (!documents.length) {
         section.style.display = 'none';
         gallery.innerHTML = '';
-        galleryImages = [];
+        galleryMedia = [];
         return;
       }
 
@@ -1187,7 +1188,10 @@
       const isOrganizer = isAdmin && userRole === 'organizer';
       gallery.classList.toggle('reorderable', isOrganizer);
       hint.style.display = isOrganizer && documents.length > 1 ? 'block' : 'none';
-      galleryImages = documents.filter(d => (d.mime_type || '').startsWith('image/'));
+      galleryMedia = documents.filter(d => {
+        const m = d.mime_type || '';
+        return m.startsWith('image/') || m.startsWith('video/');
+      });
 
       gallery.innerHTML = documents.map(doc => {
         const deleteBtn = isOrganizer
@@ -1195,12 +1199,25 @@
           : '';
         const dragAttr = isOrganizer ? ' draggable="true"' : '';
 
-        if ((doc.mime_type || '').startsWith('image/')) {
-          const index = galleryImages.findIndex(img => img.id === doc.id);
+        const mime = doc.mime_type || '';
+
+        if (mime.startsWith('image/')) {
+          const index = galleryMedia.findIndex(m => m.id === doc.id);
           return `
             <figure class="doc-tile" data-doc-id="${doc.id}" data-image-index="${index}" tabindex="0" role="button"
                     aria-label="View ${escapeHtml(doc.name)}"${dragAttr}>
               <img src="${escapeHtml(doc.url)}" alt="${escapeHtml(doc.name)}" loading="lazy">
+              ${deleteBtn}
+            </figure>`;
+        }
+
+        if (mime.startsWith('video/')) {
+          const index = galleryMedia.findIndex(m => m.id === doc.id);
+          return `
+            <figure class="doc-tile doc-tile--video" data-doc-id="${doc.id}" data-image-index="${index}" tabindex="0" role="button"
+                    aria-label="Play ${escapeHtml(doc.name)}"${dragAttr}>
+              <video src="${escapeHtml(doc.url)}" preload="metadata" muted tabindex="-1"></video>
+              <span class="doc-play" aria-hidden="true"></span>
               ${deleteBtn}
             </figure>`;
         }
@@ -1300,7 +1317,7 @@
 
     const dropArea = document.getElementById('dropArea');
     const fileInput = document.getElementById('fileInput');
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'application/pdf'];
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'application/pdf', 'video/mp4', 'video/webm', 'video/quicktime', 'video/ogg'];
 
     dropArea.addEventListener('click', () => fileInput.click());
     dropArea.addEventListener('keydown', (e) => {
@@ -1336,7 +1353,7 @@
       const accepted = files.filter(f => ALLOWED_TYPES.includes(f.type));
       const rejected = files.length - accepted.length;
       if (rejected > 0) {
-        showMessage('message', `${rejected} file(s) skipped — only images and PDFs are allowed`, 'error');
+        showMessage('message', `${rejected} file(s) skipped — only images, videos and PDFs are allowed`, 'error');
       }
       if (!accepted.length) return;
 
@@ -1366,9 +1383,18 @@
 
     const lightbox = document.getElementById('lightbox');
     const lightboxImage = document.getElementById('lightboxImage');
+    const lightboxVideo = document.getElementById('lightboxVideo');
     const lightboxStage = document.getElementById('lightboxStage');
     let lightboxIndex = 0;
     let proofOverride = null; // { url, name } when viewing a single proof image
+    let currentIsVideo = false;
+
+    function stopLightboxVideo() {
+      lightboxVideo.pause();
+      lightboxVideo.removeAttribute('src');
+      lightboxVideo.load();
+      lightboxVideo.hidden = true;
+    }
 
     function openProofViewer(url, name) {
       proofOverride = { url, name };
@@ -1386,29 +1412,40 @@
 
     function closeLightbox() {
       proofOverride = null;
+      stopLightboxVideo();
       lightbox.classList.remove('open');
       lightbox.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('lightbox-open');
     }
 
     function showSlide(direction) {
-      const doc = proofOverride || galleryImages[lightboxIndex];
+      const doc = proofOverride || galleryMedia[lightboxIndex];
       if (!doc) return;
 
       const isProof = !!proofOverride;
+      currentIsVideo = (doc.mime_type || '').startsWith('video/');
       document.getElementById('lightboxPrev').style.visibility = isProof ? 'hidden' : '';
       document.getElementById('lightboxNext').style.visibility = isProof ? 'hidden' : '';
 
       const swap = () => {
-        lightboxImage.src = doc.url;
-        lightboxImage.alt = doc.name;
+        stopLightboxVideo(); // pause/reset any prior video before showing the next slide
+        if (currentIsVideo) {
+          lightboxImage.hidden = true;
+          lightboxVideo.src = doc.url;
+          lightboxVideo.hidden = false;
+        } else {
+          lightboxImage.hidden = false;
+          lightboxImage.src = doc.url;
+          lightboxImage.alt = doc.name;
+        }
         document.getElementById('lightboxCounter').innerHTML = isProof
           ? ''
-          : `${lightboxIndex + 1}<span> / ${galleryImages.length}</span>`;
+          : `${lightboxIndex + 1}<span> / ${galleryMedia.length}</span>`;
         document.getElementById('lightboxCaption').textContent = doc.name;
       };
 
-      if (direction) {
+      // ponytail: video slides swap instantly — the slide transition only targets the <img>
+      if (direction && !currentIsVideo) {
         lightboxImage.classList.add(direction === 'next' ? 'slide-left' : 'slide-right');
         setTimeout(() => {
           swap();
@@ -1419,20 +1456,21 @@
       }
 
       if (!isProof) {
+        // ponytail: preload image neighbours only; videos are too heavy to prefetch
         [lightboxIndex + 1, lightboxIndex - 1].forEach(i => {
-          const neighbour = galleryImages[(i + galleryImages.length) % galleryImages.length];
-          if (neighbour) new Image().src = neighbour.url;
+          const neighbour = galleryMedia[(i + galleryMedia.length) % galleryMedia.length];
+          if (neighbour && !(neighbour.mime_type || '').startsWith('video/')) new Image().src = neighbour.url;
         });
       }
     }
 
     function nextSlide() {
-      lightboxIndex = (lightboxIndex + 1) % galleryImages.length;
+      lightboxIndex = (lightboxIndex + 1) % galleryMedia.length;
       showSlide('next');
     }
 
     function prevSlide() {
-      lightboxIndex = (lightboxIndex - 1 + galleryImages.length) % galleryImages.length;
+      lightboxIndex = (lightboxIndex - 1 + galleryMedia.length) % galleryMedia.length;
       showSlide('prev');
     }
 
@@ -1453,6 +1491,7 @@
 
     let touchStartX = null;
     lightboxStage.addEventListener('touchstart', (e) => {
+      if (currentIsVideo) return; // let the video's own controls own the touch; navigate via arrows
       touchStartX = e.touches[0].clientX;
     }, { passive: true });
 
