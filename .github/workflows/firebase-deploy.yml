@@ -39,9 +39,10 @@ jobs:
 
       - name: Deploy to Firebase
         run: |
-          # ponytail: pinned to v14 — v15 broke GOOGLE_APPLICATION_CREDENTIALS auth in CI
-          # (firebase-tools#10726). Bump once that's fixed.
-          pnpm dlx firebase-tools@^14 deploy \
+          # ponytail: pinned to 15.20.0 — the last release that authenticates via
+          # GOOGLE_APPLICATION_CREDENTIALS in CI. 15.21.0+ broke it (firebase-tools#10726).
+          # 15.20.0 is exactly what last deployed successfully (2026-06-16). Bump once fixed.
+          pnpm dlx firebase-tools@15.20.0 deploy \
             --only functions,hosting,database,storage \
             --project addeelnayyer-nasrv0 \
             --non-interactive \
