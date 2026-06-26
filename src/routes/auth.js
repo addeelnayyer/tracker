@@ -155,11 +155,29 @@ router.get('/status', async (req, res) => {
     const session = cookieSession.getSession(req);
     const slug = req.query?.slug;
     if (session && session.slug === slug) {
-      cookieSession.setSessionCookie(res, { campaignId: session.campaignId, slug: session.slug, role: session.role, email: session.email });
       const { firebase } = req.app.locals;
       const campaign = await firebase.getCampaign(slug);
+
+      // Legacy sessions (issued before the role field was added on 2026-06-15)
+      // have no role, which makes the client hide the organizer-only tools. Such
+      // sessions predate member login, so derive the role: an email matching the
+      // campaign owner (or no email at all, the legacy organizer shape) is the
+      // organizer; anything else is a member.
+      let role = session.role;
+      if (!role) {
+        if (session.email && campaign && session.email !== campaign.email) {
+          const members = await firebase.getMembers(campaign.id);
+          role = members.some(m => m.email === session.email) ? 'member' : 'organizer';
+        } else {
+          role = 'organizer';
+        }
+      }
+
+      // Re-issue the cookie with the resolved role so the session self-heals for
+      // every subsequent request, not just this status check.
+      cookieSession.setSessionCookie(res, { campaignId: session.campaignId, slug: session.slug, role, email: session.email });
       const tourPending = !campaign?.tour_seen_at;
-      return res.json({ authenticated: true, tourPending, role: session.role });
+      return res.json({ authenticated: true, tourPending, role });
     }
     return res.json({ authenticated: false });
   } catch (err) {

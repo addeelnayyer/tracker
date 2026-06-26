@@ -1177,6 +1177,49 @@ a {
 
 .doc-tile:hover img { filter: saturate(1.05); }
 
+/* Video tile: first-frame thumbnail with a play overlay; opens the slider on click. */
+.doc-tile--video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+  background: #0d1411;
+  display: block;
+  pointer-events: none; /* clicks fall through to the figure → openLightbox */
+}
+
+.doc-tile--video .doc-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(13, 20, 17, 0.55);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+/* play triangle */
+.doc-tile--video .doc-play::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 54%;
+  transform: translate(-50%, -50%);
+  border-style: solid;
+  border-width: 8px 0 8px 13px;
+  border-color: transparent transparent transparent #fff;
+}
+
+.doc-tile--video:hover .doc-play,
+.doc-tile--video:focus-visible .doc-play {
+  transform: translate(-50%, -50%) scale(1.12);
+  background: rgba(20, 61, 47, 0.8);
+}
+
 /* PDF tile: a stamped document card rather than a photo plate */
 .doc-tile--pdf {
   display: flex;
@@ -1392,6 +1435,16 @@ a {
 .lightbox-stage img.slide-left  { opacity: 0; transform: translateX(-28px); transition: none; }
 .lightbox-stage img.slide-right { opacity: 0; transform: translateX(28px);  transition: none; }
 
+.lightbox-stage video {
+  max-width: 100%;
+  max-height: calc(100dvh - 150px);
+  background: #0d1411;
+  border: 6px solid var(--card);
+  border-radius: 2px;
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7);
+}
+.lightbox-stage video[hidden] { display: none; }
+
 /* Top chrome: counter centered, close at right */
 .lightbox-counter {
   position: absolute;
@@ -1506,7 +1559,8 @@ body.lightbox-open { overflow: hidden; }
   .lightbox-nav.next { right: 8px; }
 
   .lightbox-stage { max-height: calc(100dvh - 120px); }
-  .lightbox-stage img { max-height: calc(100dvh - 120px); border-width: 4px; }
+  .lightbox-stage img,
+  .lightbox-stage video { max-height: calc(100dvh - 120px); border-width: 4px; }
 
   .lightbox-caption { max-width: calc(100vw - 32px); bottom: 14px; }
 
