@@ -49,7 +49,8 @@ jobs:
             --only functions,hosting,database,storage \
             --project addeelnayyer-nasrv0 \
             --non-interactive \
-            --force
+            --force \
+            --debug 2>&1 | grep -iE "scopes|auth|token|premature|econn|network|error|fetch|credential|family" | head -25
 
       - name: Clean up credentials
         if: always()
