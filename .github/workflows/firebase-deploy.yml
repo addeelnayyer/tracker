@@ -43,7 +43,7 @@ jobs:
         # on the dual-stack runner and surfaces as "Failed to authenticate". The real
         # failure, not credentials/version. Pin firebase-tools to the last-verified build.
         env:
-          NODE_OPTIONS: --no-network-family-autoselection
+          NODE_OPTIONS: --dns-result-order=ipv4first --no-network-family-autoselection
         run: |
           pnpm dlx firebase-tools@15.20.0 deploy \
             --only functions,hosting,database,storage \
