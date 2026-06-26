@@ -38,19 +38,26 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/gcp-sa-key.json" >> "$GITHUB_ENV"
 
       - name: Deploy to Firebase
-        # ponytail: --no-network-family-autoselection disables Node's Happy Eyeballs,
-        # which drops the connection to Google's OAuth token endpoint ("Premature close")
-        # on the dual-stack runner and surfaces as "Failed to authenticate". The real
-        # failure, not credentials/version. Pin firebase-tools to the last-verified build.
+        # ponytail: the SA-token POST to www.googleapis.com/oauth2/v4/token intermittently
+        # gets "Premature close" on GitHub's runner (other Google hosts in the same run are
+        # fine), which firebase-tools masks as "Failed to authenticate". ipv4first dodges the
+        # runner's flaky IPv6 path; the retry loop covers the rest. Pinned to last-good 15.20.0.
         env:
-          NODE_OPTIONS: --dns-result-order=ipv4first --no-network-family-autoselection
+          NODE_OPTIONS: --dns-result-order=ipv4first
         run: |
-          pnpm dlx firebase-tools@15.20.0 deploy \
-            --only functions,hosting,database,storage \
-            --project addeelnayyer-nasrv0 \
-            --non-interactive \
-            --force \
-            --debug 2>&1 | grep -iE "scopes|auth|token|premature|econn|network|error|fetch|credential|family" | head -25
+          for attempt in 1 2 3 4 5; do
+            echo "::group::deploy attempt $attempt"
+            pnpm dlx firebase-tools@15.20.0 deploy \
+              --only functions,hosting,database,storage \
+              --project addeelnayyer-nasrv0 \
+              --non-interactive \
+              --force && exit 0
+            echo "::endgroup::"
+            echo "attempt $attempt failed; retrying in 10s"
+            sleep 10
+          done
+          echo "all deploy attempts failed" >&2
+          exit 1
 
       - name: Clean up credentials
         if: always()
