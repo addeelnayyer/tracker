@@ -37,6 +37,17 @@ jobs:
           printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "${RUNNER_TEMP}/gcp-sa-key.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/gcp-sa-key.json" >> "$GITHUB_ENV"
 
+      - name: DIAG connectivity to token endpoint
+        run: |
+          echo "node: $(node -v)"
+          echo "=== curl POST oauth2/v4/token (expect 400 invalid, proves reachability) ==="
+          curl -s -o /dev/null -w "curl http2 status=%{http_code} time=%{time_total}s\n" \
+            -X POST https://www.googleapis.com/oauth2/v4/token -d 'grant_type=x' || echo "curl FAILED rc=$?"
+          echo "=== node fetch POST same endpoint ==="
+          node -e 'fetch("https://www.googleapis.com/oauth2/v4/token",{method:"POST"}).then(r=>console.log("node fetch status",r.status)).catch(e=>console.log("node fetch ERR",e.name,e.message,e.cause&&e.cause.message))'
+          echo "=== node fetch modern endpoint oauth2.googleapis.com ==="
+          node -e 'fetch("https://oauth2.googleapis.com/token",{method:"POST"}).then(r=>console.log("node fetch status",r.status)).catch(e=>console.log("node fetch ERR",e.name,e.message,e.cause&&e.cause.message))'
+
       - name: Deploy to Firebase
         # ponytail: the SA-token POST to www.googleapis.com/oauth2/v4/token intermittently
         # gets "Premature close" on GitHub's runner (other Google hosts in the same run are
