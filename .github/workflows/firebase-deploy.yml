@@ -22,10 +22,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          # ponytail: 20, not 22. firebase-tools' bundled node-fetch throws "Premature
-          # close" on the runner's Node 22.23.x token request (masked as "Failed to
-          # authenticate"). This is the CI runtime only; the deployed function stays Node 22.
-          node-version: 20
+          # ponytail: exact 22.22.3, not floating 22. Node 22.23.x broke firebase-tools'
+          # bundled node-fetch ("Premature close" on the SA token POST, masked as "Failed
+          # to authenticate"). 22.22.3 is the last good 22.x and the one that deployed on
+          # 2026-06-16. pnpm 11.6 needs >=22.13 so Node 20 isn't an option. CI runtime only.
+          node-version: 22.22.3
           cache: pnpm
 
       - name: Install dependencies
