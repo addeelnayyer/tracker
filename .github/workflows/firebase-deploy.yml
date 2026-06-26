@@ -36,26 +36,20 @@ jobs:
         run: |
           printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "${RUNNER_TEMP}/gcp-sa-key.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/gcp-sa-key.json" >> "$GITHUB_ENV"
-          # DIAG: validate the key file without leaking it
-          python3 - "${RUNNER_TEMP}/gcp-sa-key.json" <<'PY'
-          import json, sys
-          raw = open(sys.argv[1], 'rb').read()
-          print("DIAG key bytes:", len(raw))
-          d = json.loads(raw)
-          print("DIAG type:", d.get("type"), "client_email:", d.get("client_email"), "key_id:", (d.get("private_key_id") or "")[:8])
-          PY
 
       - name: Deploy to Firebase
+        # ponytail: --no-network-family-autoselection disables Node's Happy Eyeballs,
+        # which drops the connection to Google's OAuth token endpoint ("Premature close")
+        # on the dual-stack runner and surfaces as "Failed to authenticate". The real
+        # failure, not credentials/version. Pin firebase-tools to the last-verified build.
+        env:
+          NODE_OPTIONS: --no-network-family-autoselection
         run: |
-          # ponytail: pinned to 15.20.0 — the last release that authenticates via
-          # GOOGLE_APPLICATION_CREDENTIALS in CI. 15.21.0+ broke it (firebase-tools#10726).
-          # 15.20.0 is exactly what last deployed successfully (2026-06-16). Bump once fixed.
           pnpm dlx firebase-tools@15.20.0 deploy \
             --only functions,hosting,database,storage \
             --project addeelnayyer-nasrv0 \
             --non-interactive \
-            --force \
-            --debug
+            --force
 
       - name: Clean up credentials
         if: always()
