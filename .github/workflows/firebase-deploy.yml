@@ -36,6 +36,14 @@ jobs:
         run: |
           printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "${RUNNER_TEMP}/gcp-sa-key.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/gcp-sa-key.json" >> "$GITHUB_ENV"
+          # DIAG: validate the key file without leaking it
+          python3 - "${RUNNER_TEMP}/gcp-sa-key.json" <<'PY'
+          import json, sys
+          raw = open(sys.argv[1], 'rb').read()
+          print("DIAG key bytes:", len(raw))
+          d = json.loads(raw)
+          print("DIAG type:", d.get("type"), "client_email:", d.get("client_email"), "key_id:", (d.get("private_key_id") or "")[:8])
+          PY
 
       - name: Deploy to Firebase
         run: |
@@ -46,7 +54,8 @@ jobs:
             --only functions,hosting,database,storage \
             --project addeelnayyer-nasrv0 \
             --non-interactive \
-            --force
+            --force \
+            --debug
 
       - name: Clean up credentials
         if: always()
